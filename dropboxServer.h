@@ -15,3 +15,10 @@ typedef struct client{
     FILE_INFO file_info[MAXFILES];
     int logged_in;
 } CLIENT;
+
+/*
+*   Funções definidas na especificação
+*/
+void sync_server();
+void receive_file(char* file);
+void send_file(char* file);

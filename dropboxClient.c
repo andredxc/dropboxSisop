@@ -1,11 +1,15 @@
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/inotify.h>
+#include <pthread.h>
 
 #include "dropboxClient.h"
 
 
 int main(int argc, char** argv){
 
+    pthread_t fileWatcherThread;
     char user[MAXNAME];
     char address[10], port[4];
     char comand[MAXCOMANDSIZE];
@@ -23,11 +27,13 @@ int main(int argc, char** argv){
     fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
     fprintf(stderr, "Integrantes do grupo: André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
 
+    //Cria a thread que verifica por alterações nos arquivos
+    pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");
+
     while(isRunning){
         switch (readComand(comand)){
             case COM_UPLOAD:
-                fprintf(stderr, "COM_UPLOAD\n");
-                fprintf(stderr, "arguments: \'%s\'\n", comand);
+                send_file(comand);
                 break;
             case COM_DOWNLOAD:
                 fprintf(stderr, "COM_DOWNLOAD\n");
@@ -52,8 +58,18 @@ int main(int argc, char** argv){
     }
 }
 
+
+void send_file(char* file){
+
+    if(access(file, F_OK) == -1){
+        //Arquivo não existe
+        fprintf(stderr, "File \'%s\' doesn't exist\n", file);
+        return;
+    }
+}
+
 /*
-*   Faz o loop que lê comandos do usuário e retorna o comando lido por meio de comandBuffer
+*   Faz o loop que lê comandos do usuário e retorna os argumentos por meio de comandBuffer
 */
 int readComand(char* comandBuffer){
 
@@ -109,4 +125,62 @@ int readComand(char* comandBuffer){
             printf("Comando não reconhecido\n");
         }
     }
+}
+
+
+void *fileWatcher(void* path){
+
+    int fileDesc, watchDesc, length, isRunning = 1;
+    struct inotify_event *event;
+    char *eventPtr, *dirPath, buffer[4098];
+
+    dirPath = path;
+    fprintf(stderr, "dirPath = %s\n", dirPath);
+
+    fileDesc = inotify_init();
+
+    if(fileDesc < 0){
+        fprintf(stderr, "Error starting inotify\n");
+        return NULL;
+    }
+
+    watchDesc = inotify_add_watch(fileDesc, ".", IN_MODIFY | IN_CREATE | IN_DELETE);
+
+    if(watchDesc < 0){
+        fprintf(stderr, "Error adding watch to \'%s\'\n", dirPath);
+        isRunning = 0;
+    }
+
+    while(isRunning){
+        //Verifica se arquivos foram alterados
+        length = read(fileDesc, buffer, sizeof(buffer));
+
+        if(length < 0){
+            //Erro na leitura
+            fprintf(stderr, "Error watching directory \'%s\'\n", dirPath);
+            isRunning = 0;
+        }
+        else{
+            //Detectou mudança nos arquivos
+            for(eventPtr = buffer; eventPtr < buffer + length; eventPtr += sizeof(struct inotify_event) + event->len){
+                //Itera sobre os eventos lidos
+                event = (struct inotify_event*) eventPtr;
+
+                if(event->mask & IN_MODIFY){
+                    fprintf(stderr, "File \'%s\' was modified\n", event->name);
+                }
+                else if(event->mask & IN_CREATE){
+                    fprintf(stderr, "File \'%s\' was created\n", event->name);
+                }
+                else if(event->mask & IN_DELETE){
+                    fprintf(stderr, "File \'%s\' was deleted\n", event->name);
+                }
+            }
+        }
+    }
+
+    inotify_rm_watch(fileDesc, watchDesc);
+    close(fileDesc);
+
+    return NULL;
 }

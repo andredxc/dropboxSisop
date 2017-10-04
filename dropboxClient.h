@@ -10,4 +10,18 @@
 #define MAXNAME 20
 #define MAXCOMANDSIZE 50
 
+/*
+*   Funções definidas na especificação
+*/
+int connect_server(char* host, int port);
+void sync_client();
+void send_file(char* file);
+void get_file(char* file);
+void delete_file(char* file);
+void close_connection();
+
+/*
+*   Outras funções
+*/
 int readComand(char* comandBuffer);
+void* fileWatcher(void* dirPath);
