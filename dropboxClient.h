@@ -8,6 +8,6 @@
 #define COM_EXIT            6
 
 #define MAXNAME 20
-#define MAXCOMANDSIZE 20
+#define MAXCOMANDSIZE 50
 
 int readComand(char* comandBuffer);

@@ -1,4 +1,6 @@
-#include <stdio.h>
+
+#define MAXNAME 20
+#define MAXFILES 20
 
 typedef struct file_info{
     char name[MAXNAME];
@@ -10,6 +12,6 @@ typedef struct file_info{
 typedef struct client{
     int devices[2];
     char userid[MAXNAME];
-    CLIENT file_info[MAXFILES];
+    FILE_INFO file_info[MAXFILES];
     int logged_in;
-}CLIENT;
+} CLIENT;
