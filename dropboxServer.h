@@ -1,29 +1,42 @@
+#include <stdio.h>
 
-#define MAXNAME 20
-#define MAXFILES 20
+class DropboxServer{
 
-typedef struct file_info{
-    char name[MAXNAME];
-    char extensions[MAXNAME];
-    char last_modified[MAXFILES];
-    int size;
-} FILE_INFO;
+    #define MAXNAME 20
+    #define MAXFILES 20
 
-typedef struct client{
-    int devices[2];
-    char userid[MAXNAME];
-    FILE_INFO file_info[MAXFILES];
-    int logged_in;
-} CLIENT;
+    #define SERVER_PORT 4000
+    #define SERVER_MAX_CLIENTES 20
 
-/*
-*   Funções definidas na especificação
-*/
-void sync_server();
-void receive_file(char* file);
-void send_file(char* file);
+    typedef struct file_info{
+        char name[MAXNAME];
+        char extensions[MAXNAME];
+        char last_modified[MAXFILES];
+        int size;
+    } FILE_INFO;
 
-/*
-*   Funções extras
-*/
-int initServer();
+    typedef struct client{
+        int devices[2];
+        char userid[MAXNAME];
+        FILE_INFO file_info[MAXFILES];
+        int logged_in;
+    } CLIENT;
+
+    private:
+        int serverSocket;
+
+    public:
+        DropboxServer();
+    //Funções definidas na especificação
+        void sync_server();
+        void receive_file(char* file);
+        void send_file(char* file);
+    //Funções extras
+        int initialize();
+
+        int getSocket();
+
+    private:
+    //Funções extras
+        void* connectionHandler(void* args);
+};

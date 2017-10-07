@@ -7,46 +7,27 @@
 #include <netinet/in.h>
 #include "dropboxServer.h"
 
-#define SERVER_PORT 4000
-#define SERVER_BACKLOG 5
+//--------------------------------------------------FUNÇÕES EXTRAS
 
-
-int main(){
-
-    int serverSocket, comunicationSocket;
-    struct sockaddr_in clientAddress;
-    socklen_t clientLength;
-    char comunicationBuffer[256];
-
-    //Inicialização do servidor
-    if((serverSocket = initServer()) < 0){
-        return -1;
-    }
-    //Esperando por conexões
-    listen(serverSocket, SERVER_BACKLOG);
-    fprintf(stderr, "Server is listening.\n");
-
-
-
-    comunicationSocket = accept(serverSocket, (struct sockaddr*) &clientAddress, &clientLength);
-
-    if(read(comunicationSocket, comunicationBuffer, sizeof(comunicationBuffer)) < 0){
-        fprintf(stderr, "Error reading from %d:%d\n", clientAddress.sin_addr.s_addr, clientAddress.sin_port);
-        return -1;
-    }
-
-    close(comunicationSocket);
-    close(serverSocket);
-    return 0;
+/*
+*   Constructor
+*/
+DropboxServer::DropboxServer(){
 }
 
-//--------------------------------------------------FUNÇÕES EXTRAS
+/*
+*   Atende à conexão de um cliente
+*/
+void* DropboxServer::connectionHandler(void* args){
+
+    return NULL;
+}
 
 /*
 *   Faz o socket() e bind() do servidor
 *   Retorno: socket ou -1 (em caso de erro)
 */
-int initServer(){
+int DropboxServer::initialize(){
 
     int serverSocket;
     struct sockaddr_in serverAddress;
@@ -66,5 +47,9 @@ int initServer(){
         fprintf(stderr, "Error binding server\n");
         return -1;
     }
+    return serverSocket;
+}
+
+int DropboxServer::getSocket(){
     return serverSocket;
 }

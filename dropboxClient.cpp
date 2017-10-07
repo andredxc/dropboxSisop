@@ -13,61 +13,19 @@
 #include <arpa/inet.h>
 #include "dropboxClient.h"
 
+//------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
 
-int main(int argc, char** argv){
+/*
+*   Constructor
+*/
+DropboxClient::DropboxClient(){
 
-    pthread_t fileWatcherThread;
-    int comSocket;
-    char comand[MAXCOMANDSIZE];
-    int isRunning = 1;
-
-    //Verifica os argumentos passados
-    if(argc < 4){
-        printf("Usage: ./dropboxClient <user> <address> <port>\n");
-        return -1;
-    }
-    //Conecta ao servidor
-    if((comSocket = connect_server(argv[2], atoi(argv[3]))) < 0){
-        return -1;
-    }
-    //Conexão realizada com sucesso
-    fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
-    fprintf(stderr, "André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
-
-    //Cria a thread que verifica por alterações nos arquivos
-    // pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");
-
-    //Lẽ comandos do usuário
-    while(isRunning){
-        switch (readComand(comand)){
-            case COM_UPLOAD:
-                send_file(comand);
-                break;
-            case COM_DOWNLOAD:
-                fprintf(stderr, "COM_DOWNLOAD\n");
-                fprintf(stderr, "arguments: \'%s\'\n", comand);
-                break;
-            case COM_LIST_SERVER:
-                fprintf(stderr, "COM_LIST_SERVER\n");
-                fprintf(stderr, "arguments: \'%s\'\n", comand);
-                break;
-            case COM_LIST_CLIENT:
-                fprintf(stderr, "COM_LIST_CLIENT\n");
-                fprintf(stderr, "arguments: \'%s\'\n", comand);
-                break;
-            case COM_GET_SYNC_DIR:
-                fprintf(stderr, "COM_GET_SYNC_DIR\n");
-                fprintf(stderr, "arguments: \'%s\'\n", comand);
-                break;
-            case COM_EXIT:
-                isRunning = 0;
-                break;
-        }
-    }
 }
 
-
-void send_file(char* file){
+/*
+*   Envia arquivo
+*/
+void DropboxClient::send_file(char* file){
 
     if(access(file, F_OK) == -1){
         //Arquivo não existe
@@ -76,9 +34,10 @@ void send_file(char* file){
     }
 }
 
-//------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
-
-int connect_server(char* host, int port){
+/*
+*   Estabelece conexão
+*/
+int DropboxClient::connect_server(char* host, int port){
 
     struct hostent *server;
     struct sockaddr_in serverAddress;
@@ -115,7 +74,7 @@ int connect_server(char* host, int port){
 /*
 *   Faz o loop que lê comandos do usuário e retorna os argumentos por meio de comandBuffer
 */
-int readComand(char* comandBuffer){
+int DropboxClient::readComand(char* comandBuffer){
 
     char comand[MAXCOMANDSIZE];
 
@@ -174,13 +133,13 @@ int readComand(char* comandBuffer){
 /*
 *   Verifica se hove alterações dentro do diretório em path
 */
-void *fileWatcher(void* path){
+void* DropboxClient::fileWatcher(void* path){
 
     int fileDesc, watchDesc, length, isRunning = 1;
     struct inotify_event *event;
     char *eventPtr, *dirPath, buffer[4098];
 
-    dirPath = path;
+    dirPath = (char*) path;
     fprintf(stderr, "dirPath = %s\n", dirPath);
 
     fileDesc = inotify_init();

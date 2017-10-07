@@ -1,22 +1,22 @@
 
 all: dropboxClient.o dropboxServer.o
-	gcc -o clientDropbox dropboxClient.c -lpthread
-	gcc -o serverDropbox dropboxServer.c
+	g++ -o clientDropbox mainClient.cpp dropboxClient.o -lpthread
+	g++ -o serverDropbox mainServer.cpp dropboxServer.o
 
 debug: dropboxClientDebug
-	gcc -o dropboxClient dropboxClient.c -Wall -g
+	g++ -o dropboxClient dropboxClient.cpp -Wall -g
 
-dropboxClient.o: dropboxClient.c
-	gcc -c dropboxClient.c -Wall -lpthread
+dropboxClient.o: dropboxClient.cpp
+	g++ -c dropboxClient.cpp -Wall -lpthread
 
-dropboxClientDebug: dropboxClient.c
+dropboxClientDebug: dropboxClient.cpp
+	g++ -c dropboxClient.cpp -Wall -g
 
-	gcc -c dropboxClient.c -Wall -g
-dropboxServer.o: dropboxServer.c
-	gcc -c dropboxServer.c -Wall
+dropboxServer.o: dropboxServer.cpp
+	g++ -c dropboxServer.cpp -Wall
 
-dropboxServerDebug: dropboxServer.c
-	gcc -c dropboxServer.c -Wall -g
+dropboxServerDebug: dropboxServer.cpp
+	g++ -c dropboxServer.cpp -Wall -g
 
 clean:
 	rm *.o clientDropbox serverDropbox
