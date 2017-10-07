@@ -1,7 +1,7 @@
 
 all: dropboxClient.o dropboxServer.o
-	gcc -o dropboxClient dropboxClient.c -lpthread
-	gcc -o dropboxServer dropboxServer.c
+	gcc -o clientDropbox dropboxClient.c -lpthread
+	gcc -o serverDropbox dropboxServer.c
 
 debug: dropboxClientDebug
 	gcc -o dropboxClient dropboxClient.c -Wall -g
@@ -19,4 +19,4 @@ dropboxServerDebug: dropboxServer.c
 	gcc -c dropboxServer.c -Wall -g
 
 clean:
-	rm *.o dropboxClient dropboxServer
+	rm *.o clientDropbox serverDropbox

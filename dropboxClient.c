@@ -1,35 +1,43 @@
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <sys/inotify.h>
 #include <pthread.h>
-
+#include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "dropboxClient.h"
 
 
 int main(int argc, char** argv){
 
     pthread_t fileWatcherThread;
-    char user[MAXNAME];
-    char address[10], port[4];
+    int comSocket;
     char comand[MAXCOMANDSIZE];
     int isRunning = 1;
 
+    //Verifica os argumentos passados
     if(argc < 4){
         printf("Usage: ./dropboxClient <user> <address> <port>\n");
-        exit(0);
+        return -1;
     }
-
-    strcpy(user, argv[1]);
-    strcpy(address, argv[2]);
-    strcpy(port, argv[3]);
-
+    //Conecta ao servidor
+    if((comSocket = connect_server(argv[2], atoi(argv[3]))) < 0){
+        return -1;
+    }
+    //Conexão realizada com sucesso
     fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
-    fprintf(stderr, "Integrantes do grupo: André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
+    fprintf(stderr, "André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
 
     //Cria a thread que verifica por alterações nos arquivos
-    pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");
+    // pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");
 
+    //Lẽ comandos do usuário
     while(isRunning){
         switch (readComand(comand)){
             case COM_UPLOAD:
@@ -67,6 +75,42 @@ void send_file(char* file){
         return;
     }
 }
+
+//------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
+
+int connect_server(char* host, int port){
+
+    struct hostent *server;
+    struct sockaddr_in serverAddress;
+    int comSocket;
+
+    server = gethostbyname(host);
+    if(server == NULL){
+        fprintf(stderr, "Server \'%s\' doesn't exist\n", host);
+        return -1;
+    }
+    //Inicializando socket
+    comSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if(comSocket == -1){
+        fprintf(stderr, "Error creating socket\n");
+        return -1;
+    }
+    //Inicializando struct do socket do servidor
+    serverAddress.sin_family = AF_INET;
+	serverAddress.sin_port = htons(port);
+	serverAddress.sin_addr = *((struct in_addr*) server->h_addr);
+	bzero(&(serverAddress.sin_zero), 8);
+    //Conectando ao servidor
+    if(connect(comSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
+        fprintf(stderr, "Couldn't connect to server at %s on port %d\n", inet_ntoa(serverAddress.sin_addr), ntohs(serverAddress.sin_port));
+        close(comSocket);
+        return -1;
+    }
+
+    return comSocket;
+}
+
+//------------------------------------------------OUTRAS FUNÇÕES
 
 /*
 *   Faz o loop que lê comandos do usuário e retorna os argumentos por meio de comandBuffer
@@ -127,7 +171,9 @@ int readComand(char* comandBuffer){
     }
 }
 
-
+/*
+*   Verifica se hove alterações dentro do diretório em path
+*/
 void *fileWatcher(void* path){
 
     int fileDesc, watchDesc, length, isRunning = 1;
