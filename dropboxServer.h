@@ -23,7 +23,7 @@ class DropboxServer{
     } CLIENT;
 
     private:
-        int serverSocket;
+        int _serverSocket;
 
     public:
         DropboxServer();

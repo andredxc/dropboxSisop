@@ -29,11 +29,10 @@ void* DropboxServer::connectionHandler(void* args){
 */
 int DropboxServer::initialize(){
 
-    int serverSocket;
     struct sockaddr_in serverAddress;
     //Inicializando socket
-    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if(serverSocket == -1){
+    _serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if(_serverSocket == -1){
         fprintf(stderr, "Error initializing socket\n");
         return -1;
     }
@@ -43,13 +42,13 @@ int DropboxServer::initialize(){
 	serverAddress.sin_addr.s_addr = INADDR_ANY;
 	bzero(&(serverAddress.sin_zero), 8);
     //Faz o bind
-    if(bind(serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
+    if(bind(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
         fprintf(stderr, "Error binding server\n");
         return -1;
     }
-    return serverSocket;
+    return _serverSocket;
 }
 
 int DropboxServer::getSocket(){
-    return serverSocket;
+    return _serverSocket;
 }
