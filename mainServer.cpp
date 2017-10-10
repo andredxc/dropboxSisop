@@ -25,15 +25,13 @@ int main(){
     //Esperando por conexões
     fprintf(stderr, "Server is listening.\n");
     
-    listen(server.getSocket(), SERVER_BACKLOG);
-    comunicationSocket = accept(server.getSocket(), (struct sockaddr*) &clientAddress, &clientLength);
-
-    if(read(comunicationSocket, comunicationBuffer, sizeof(comunicationBuffer)) < 0){
-        fprintf(stderr, "Error reading from %d:%d\n", clientAddress.sin_addr.s_addr, clientAddress.sin_port);
-        return -1;
-    }
-
-    close(comunicationSocket);
+    while(isRunning){
+	
+		listen(server.getSocket(), SERVER_BACKLOG);
+		comunicationSocket = accept(server.getSocket(), (struct sockaddr*) &clientAddress, &clientLength);
+		server.handleConnection(comunicationSocket);
+	}
+    
     close(server.getSocket());
     return 0;
 }

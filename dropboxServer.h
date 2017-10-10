@@ -33,10 +33,11 @@ class DropboxServer{
         void send_file(char* file);
     //Funções extras
         int initialize();
-
+		void handleConnection(int socket);
         int getSocket();
 
     private:
     //Funções extras
-        void* connectionHandler(void* args);
+		static void* handleConnectionThread(void* args);
+    
 };

@@ -1,7 +1,7 @@
 
 all: dropboxClient.o dropboxServer.o
 	g++ -o clientDropbox mainClient.cpp dropboxClient.o -lpthread
-	g++ -o serverDropbox mainServer.cpp dropboxServer.o
+	g++ -o serverDropbox mainServer.cpp dropboxServer.o -lpthread
 
 debug: dropboxClientDebug
 	g++ -o dropboxClient dropboxClient.cpp -Wall -g
@@ -13,7 +13,7 @@ dropboxClientDebug: dropboxClient.cpp
 	g++ -c dropboxClient.cpp -Wall -g
 
 dropboxServer.o: dropboxServer.cpp
-	g++ -c dropboxServer.cpp -Wall
+	g++ -c dropboxServer.cpp -Wall -lpthread
 
 dropboxServerDebug: dropboxServer.cpp
 	g++ -c dropboxServer.cpp -Wall -g

@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include "dropboxServer.h"
 
 //--------------------------------------------------FUNÇÕES EXTRAS
@@ -13,14 +14,30 @@
 *   Constructor
 */
 DropboxServer::DropboxServer(){
+	
+	
 }
 
 /*
-*   Atende à conexão de um cliente
+*   Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create
 */
-void* DropboxServer::connectionHandler(void* args){
+void DropboxServer::handleConnection(int socket){
 
-    return NULL;
+	pthread_t comunicationThread;
+	
+	pthread_create(&comunicationThread, NULL, handleConnectionThread, &socket);
+}
+
+/*
+*	Thread que realiza a comunicação entre o servidor e o cliente
+*/
+void* DropboxServer::handleConnectionThread(void* args){
+		
+	int socket = *(int *) args;
+	
+	fprintf(stderr, "Starting thread with comunication socket = %d\n", socket);
+	
+	return NULL;
 }
 
 /*
@@ -48,6 +65,8 @@ int DropboxServer::initialize(){
     }
     return _serverSocket;
 }
+
+
 
 int DropboxServer::getSocket(){
     return _serverSocket;
