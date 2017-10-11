@@ -8,10 +8,9 @@ class DropboxClient{
     #define COM_LIST_CLIENT     4
     #define COM_GET_SYNC_DIR    5
     #define COM_EXIT            6
-
-    #define MAXNAME 20
-    #define MAXCOMANDSIZE 50
-
+    
+    #define MAXNAME             20
+    #define MAXCOMANDSIZE       50
 
     public:
     //Funções definidas na especificação

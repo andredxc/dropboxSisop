@@ -7,9 +7,6 @@
 #include <netinet/in.h>
 #include "dropboxServer.h"
 
-#define SERVER_BACKLOG 20
-
-
 int main(){
 
     int comunicationSocket, isRunning=1;
@@ -22,16 +19,14 @@ int main(){
     if(server.initialize() < 0){
         return -1;
     }
-    //Esperando por conexões
-    fprintf(stderr, "Server is listening.\n");
-    
+    //Esperando por conexões e disparando threads
     while(isRunning){
-	
-		listen(server.getSocket(), SERVER_BACKLOG);
-		comunicationSocket = accept(server.getSocket(), (struct sockaddr*) &clientAddress, &clientLength);
+
+		comunicationSocket = server.listenAndAccept();
+        fprintf(stderr, "Server is listening.\n");
 		server.handleConnection(comunicationSocket);
 	}
-    
+
     close(server.getSocket());
     return 0;
 }

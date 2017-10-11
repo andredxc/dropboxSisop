@@ -13,10 +13,7 @@
 /*
 *   Constructor
 */
-DropboxServer::DropboxServer(){
-	
-	
-}
+DropboxServer::DropboxServer(){}
 
 /*
 *   Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create
@@ -24,19 +21,28 @@ DropboxServer::DropboxServer(){
 void DropboxServer::handleConnection(int socket){
 
 	pthread_t comunicationThread;
-	
+
 	pthread_create(&comunicationThread, NULL, handleConnectionThread, &socket);
+}
+
+int DropboxServer::listenAndAccept(){
+
+    struct sockaddr_in clientAddress;
+    socklen_t clientLength;
+
+    listen(getSocket(), SERVER_BACKLOG);
+    return accept(getSocket(), (struct sockaddr*) &clientAddress, &clientLength);
 }
 
 /*
 *	Thread que realiza a comunicação entre o servidor e o cliente
 */
 void* DropboxServer::handleConnectionThread(void* args){
-		
+
 	int socket = *(int *) args;
-	
+
 	fprintf(stderr, "Starting thread with comunication socket = %d\n", socket);
-	
+
 	return NULL;
 }
 

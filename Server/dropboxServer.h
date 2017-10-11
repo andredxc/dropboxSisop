@@ -7,6 +7,7 @@ class DropboxServer{
 
     #define SERVER_PORT 4000
     #define SERVER_MAX_CLIENTES 20
+    #define SERVER_BACKLOG 20
 
     typedef struct file_info{
         char name[MAXNAME];
@@ -34,10 +35,12 @@ class DropboxServer{
     //Funções extras
         int initialize();
 		void handleConnection(int socket);
+        int listenAndAccept();
+
         int getSocket();
 
     private:
     //Funções extras
 		static void* handleConnectionThread(void* args);
-    
+
 };

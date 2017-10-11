@@ -32,8 +32,6 @@ int main(int argc, char** argv){
         return -1;
     }
 
-    fprintf(stderr, "Connected to server\n");
-
     //Conexão realizada com sucesso
     fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
     fprintf(stderr, "André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
