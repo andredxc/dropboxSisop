@@ -22,9 +22,9 @@ int main(){
     //Esperando por conexões e disparando threads
     while(isRunning){
 
-		comunicationSocket = server.listenAndAccept();
         fprintf(stderr, "Server is listening.\n");
-		server.handleConnection(comunicationSocket);
+		comunicationSocket = server.listenAndAccept();
+		server.handleConnection(&comunicationSocket);
 	}
 
     close(server.getSocket());

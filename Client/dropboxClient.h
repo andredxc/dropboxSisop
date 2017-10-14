@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "../Util/dropboxUtil.h"
 
 class DropboxClient{
 
@@ -8,9 +9,12 @@ class DropboxClient{
     #define COM_LIST_CLIENT     4
     #define COM_GET_SYNC_DIR    5
     #define COM_EXIT            6
-    
-    #define MAXNAME             20
+
     #define MAXCOMANDSIZE       50
+
+    private:
+        int _socket;
+        char _userId[MAXNAME];
 
     public:
     //Funções definidas na especificação
@@ -22,7 +26,13 @@ class DropboxClient{
         void delete_file(char* file);
         void close_connection();
     //Funções extras
-        int readComand(char* comandBuffer);
+        int readComand(char* comandBuffer, int bufferSize);
+        bool sendComand(char* comand, int length);
+        void getSyncDirComand();
+        bool sendInteger(int message);
+
+        int getSocket();
+        void setUserId(char* userId);
 
     private:
     //Funções extras

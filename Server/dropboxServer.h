@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <vector>
+#include "../Util/dropboxUtil.h"
 
 class DropboxServer{
 
@@ -8,6 +10,7 @@ class DropboxServer{
     #define SERVER_PORT 4000
     #define SERVER_MAX_CLIENTES 20
     #define SERVER_BACKLOG 20
+    #define SERVER_MAX_MSG_SIZE  256
 
     typedef struct file_info{
         char name[MAXNAME];
@@ -18,13 +21,14 @@ class DropboxServer{
 
     typedef struct client{
         int devices[2];
-        char userid[MAXNAME];
+        char userId[MAXNAME];
         FILE_INFO file_info[MAXFILES];
         int logged_in;
     } CLIENT;
 
     private:
         int _serverSocket;
+        std::vector<CLIENT> _clients;
 
     public:
         DropboxServer();
@@ -34,7 +38,7 @@ class DropboxServer{
         void send_file(char* file);
     //Funções extras
         int initialize();
-		void handleConnection(int socket);
+		void handleConnection(int* socket);
         int listenAndAccept();
 
         int getSocket();
@@ -42,5 +46,6 @@ class DropboxServer{
     private:
     //Funções extras
 		static void* handleConnectionThread(void* args);
+        bool logInClient(int socket, char* userId);
 
 };
