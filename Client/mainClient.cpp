@@ -30,12 +30,17 @@ int main(int argc, char** argv){
     if(client.connect_server(argv[2], atoi(argv[3])) < 0){
         return -1;
     }
+    //Envia o userId do cliente para o servidor
+    if(!client.sendUserId(argv[1])){
+		fprintf(stderr, "Error logging in\n");
+		return -1;
+	}
 
     //Conexão realizada com sucesso
     fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
     fprintf(stderr, "André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
     //Define o nome de usuário
-    client.setUserId(argv[1]);
+    //~ client.setUserId(argv[1]);
 
     //Cria a thread que verifica por alterações nos arquivos
     // pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");

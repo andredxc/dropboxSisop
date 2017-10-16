@@ -223,11 +223,6 @@ void DropboxClient::getSyncDirComand(){
 
     char syncDirPath[200];
 
-    if(write(_socket, _userId, sizeof(_userId)) < 0){
-        fprintf(stderr, "DropboxClient - Error sending userId\n");
-        return;
-    }
-
     snprintf(syncDirPath, sizeof(syncDirPath), "%s%s", CLIENT_SYNC_DIR_PATH, _userId);
     //Verifica se sync_dir já existe no cliente
     if(access(syncDirPath, F_OK) == -1){
@@ -255,6 +250,37 @@ bool DropboxClient::sendInteger(int message){
         return false;
     }
     return true;
+}
+
+/*Envia o userId para o servidor e aguarda confirmação de log in*/
+bool DropboxClient::sendUserId(char* userId){
+
+	char receiveBuffer[CP_MAX_MSG_SIZE];
+
+	strncpy(_userId, userId, sizeof(_userId));
+	//Envia a identificação para o servidor
+	if(write(_socket, _userId, sizeof(_userId)) < 0){
+        fprintf(stderr, "DropboxClient - Error sending userId\n");
+        return false;
+    }
+    //Aguar mensagem de login
+    if(read(_socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+		fprintf(stderr, "DropboxClient - Error receiving sign in message\n");
+		return false;
+	}
+    else{
+		if(atoi(receiveBuffer) == CP_LOGIN_SUCCESSFUL){
+			return true;
+		}
+		else if(atoi(receiveBuffer) == CP_LOGIN_FAILED){
+			return false;
+		}
+		else{
+			fprintf(stderr, "DropboxClient - Internal error during sign in\n");
+			return false;
+		}
+	}
+	return false;
 }
 
 int DropboxClient::getSocket(){ return _socket; }
