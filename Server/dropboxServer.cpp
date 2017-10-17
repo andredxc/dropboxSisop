@@ -51,7 +51,7 @@ void* DropboxServer::handleConnectionThread(void* args){
     //Recebe o userId do cliente
     bzero(receiveBuffer, strlen(receiveBuffer));
     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
-        fprintf(stderr, "DropboxServer - Error receiving userId\n");
+        fprintf(stderr, "Socket %d - Error receiving userId\n", socket);
         server->closeConnection(socket);
         free(args);
         return NULL;
@@ -59,34 +59,34 @@ void* DropboxServer::handleConnectionThread(void* args){
     //Valida o userId recebido
     if(server->logInClient(socket, receiveBuffer)){
 		//Logou com sucesso
-		fprintf(stderr, "DropboxServer - User \"%s\" just logged in\n", receiveBuffer);
+		fprintf(stderr, "Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
 		server->sendInteger(socket, CP_LOGIN_SUCCESSFUL);
     }
     else{
 		//Falha no login
-		fprintf(stderr, "DropboxServer - Error logging user %s in\n", receiveBuffer);
+		fprintf(stderr, "Socket %d - Error logging user %s in\n", socket, receiveBuffer);
         server->sendInteger(socket, CP_LOGIN_FAILED);
         server->closeConnection(socket);
         free(args);
         return NULL;
 	}
     //Espera pela mensagem informando se o cliente encontrou o sync_dir
-    fprintf(stderr, "DropboxServer - Waiting for sync dir message\n");
+    fprintf(stderr, "Socket %d - Waiting for sync dir message\n", socket);
     bzero(receiveBuffer, sizeof(receiveBuffer));
     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
-        fprintf(stderr, "DropboxServer - Error receiving sync_dir information\n");
+        fprintf(stderr, "Socket %d - Error receiving sync_dir information\n", socket);
         server->closeConnection(socket);
         free(args);
         return NULL;
     }
     if(atoi(receiveBuffer) == CP_SYNC_DIR_FOUND){
-        fprintf(stderr, "DropboxServer - Sync dir found\n");
+        fprintf(stderr, "Socket %d - Sync dir found\n", socket);
     }
     else if(atoi(receiveBuffer) == CP_SYNC_DIR_NOT_FOUND){
-        fprintf(stderr, "DropboxServer - Sync dir not found\n");
+        fprintf(stderr, "Socket %d - Sync dir not found\n", socket);
     }
     else{
-        fprintf(stderr, "DropboxServer - Error didn't receive sync dir message\n");
+        fprintf(stderr, "Socket %d - Error didn't receive sync dir message\n", socket);
         server->closeConnection(socket);
         free(args);
         return NULL;
@@ -97,10 +97,10 @@ void* DropboxServer::handleConnectionThread(void* args){
         bzero(receiveBuffer, sizeof(receiveBuffer));
         n = read(socket, receiveBuffer, sizeof(receiveBuffer)) ;
         if(n < 0){
-            fprintf(stderr, "DropboxServer - Error receiving comand from client on socket %d\n", socket);
+            fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
         }
         else{
-            fprintf(stderr, "DropboxServer - Comand received from client: \'%s\'\n", receiveBuffer);
+            fprintf(stderr, "Socket %d - Comand received from client: \'%s\'\n", socket, receiveBuffer);
         }
     }
 
@@ -122,7 +122,7 @@ bool DropboxServer::logInClient(int socket, char* userId){
         if(strcmp(userId, _clients.at(i).userId) == 0){
             foundUser = true;
             if(_clients.at(i).devices[0] > 0 && _clients.at(i).devices[1] > 0){
-                fprintf(stderr, "DropboxServer - User already has 2 connections\n");
+                fprintf(stderr, "Socket %d - User already has 2 connections\n", socket);
                 return false;
             }
             break;
@@ -138,7 +138,7 @@ bool DropboxServer::logInClient(int socket, char* userId){
             _clients.at(i).devices[1] = socket;
         }
         else{
-            fprintf(stderr, "DropboxServer - Internal error, one position sould be empty\n");
+            fprintf(stderr, "Socket %d - Internal error, one position sould be empty\n", socket);
             return false;
         }
     }
