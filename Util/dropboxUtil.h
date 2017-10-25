@@ -14,3 +14,5 @@
 //Outras constantes
 #define CLIENT_SYNC_DIR_PATH    "./clientFiles/"
 #define SERVER_SYNC_DIR_PATH    "./serverFiles/"
+
+bool sendInteger(int socket, int message);

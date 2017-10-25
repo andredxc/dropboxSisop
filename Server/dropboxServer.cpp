@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include "dropboxServer.h"
 
+/*Utilizada na criação da thread pois a função tem que ser static*/
 struct classAndSocket{
     DropboxServer* instance;
     int* socket;
@@ -15,14 +16,13 @@ struct classAndSocket{
 
 //--------------------------------------------------FUNÇÕES EXTRAS
 
-/*
-*   Constructor
-*/
-DropboxServer::DropboxServer(){}
+/*Constructor*/
+DropboxServer::DropboxServer(){
+    pthread_mutex_init(&_logInMutex, NULL);
+    pthread_mutex_init(&_logOutMutex, NULL);
+}
 
-/*
-*   Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create
-*/
+/*Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create*/
 void DropboxServer::handleConnection(int* socket){
 
 	pthread_t comunicationThread;
@@ -33,25 +33,23 @@ void DropboxServer::handleConnection(int* socket){
 	pthread_create(&comunicationThread, NULL, handleConnectionThread, arg);
 }
 
-/*
-*	Thread que realiza a comunicação entre o servidor e o cliente
-*/
+/*Thread que realiza a comunicação entre o servidor e o cliente*/
 void* DropboxServer::handleConnectionThread(void* args){
 
 	struct classAndSocket arg = *(struct classAndSocket*)args;
     bool isRunning = true;
     int n, socket;
-    char receiveBuffer[CP_MAX_MSG_SIZE];
+    char receiveBuffer[CP_MAX_MSG_SIZE], userId[MAXNAME];
 
     DropboxServer *server = arg.instance;
     socket = *arg.socket;
 
-    fprintf(stderr, "DropboxServer - Starting thread with comunication socket = %d\n", socket);
+    printf("DropboxServer - Starting thread with comunication socket = %d\n", socket);
 
     //Recebe o userId do cliente
     bzero(receiveBuffer, strlen(receiveBuffer));
     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving userId\n", socket);
+        printf("Socket %d - Error receiving userId\n", socket);
         server->closeConnection(socket);
         free(args);
         return NULL;
@@ -59,34 +57,37 @@ void* DropboxServer::handleConnectionThread(void* args){
     //Valida o userId recebido
     if(server->logInClient(socket, receiveBuffer)){
 		//Logou com sucesso
-		fprintf(stderr, "Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
-		server->sendInteger(socket, CP_LOGIN_SUCCESSFUL);
+		printf("Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
+		sendInteger(socket, CP_LOGIN_SUCCESSFUL);
+        strncpy(userId, receiveBuffer, sizeof(userId));
     }
     else{
 		//Falha no login
-		fprintf(stderr, "Socket %d - Error logging user %s in\n", socket, receiveBuffer);
-        server->sendInteger(socket, CP_LOGIN_FAILED);
+		printf("Socket %d - Error logging user %s in\n", socket, receiveBuffer);
+        sendInteger(socket, CP_LOGIN_FAILED);
         server->closeConnection(socket);
         free(args);
         return NULL;
 	}
     //Espera pela mensagem informando se o cliente encontrou o sync_dir
-    fprintf(stderr, "Socket %d - Waiting for sync dir message\n", socket);
+    printf("Socket %d - Waiting for sync dir message\n", socket);
     bzero(receiveBuffer, sizeof(receiveBuffer));
     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving sync_dir information\n", socket);
+        printf("Socket %d - Error receiving sync_dir information\n", socket);
+        server->logOutClient(socket, userId);
         server->closeConnection(socket);
         free(args);
         return NULL;
     }
     if(atoi(receiveBuffer) == CP_SYNC_DIR_FOUND){
-        fprintf(stderr, "Socket %d - Sync dir found\n", socket);
+        printf("Socket %d - Sync dir found\n", socket);
     }
     else if(atoi(receiveBuffer) == CP_SYNC_DIR_NOT_FOUND){
-        fprintf(stderr, "Socket %d - Sync dir not found\n", socket);
+        printf("Socket %d - Sync dir not found\n", socket);
     }
     else{
-        fprintf(stderr, "Socket %d - Error didn't receive sync dir message\n", socket);
+        printf("Socket %d - Error didn't receive sync dir message\n", socket);
+        server->logOutClient(socket, userId);
         server->closeConnection(socket);
         free(args);
         return NULL;
@@ -97,10 +98,10 @@ void* DropboxServer::handleConnectionThread(void* args){
         bzero(receiveBuffer, sizeof(receiveBuffer));
         n = read(socket, receiveBuffer, sizeof(receiveBuffer)) ;
         if(n < 0){
-            fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
+            printf("Socket %d - Error receiving comand from client\n", socket);
         }
         else{
-            fprintf(stderr, "Socket %d - Comand received from client: \'%s\'\n", socket, receiveBuffer);
+            printf("Socket %d - Comand received from client: \'%s\'\n", socket, receiveBuffer);
         }
     }
 
@@ -108,21 +109,21 @@ void* DropboxServer::handleConnectionThread(void* args){
 	return NULL;
 }
 
-/*
-*   Adiciona um usuário a estrutura de clientes do servidor
-*/
+/*Adiciona um usuário a estrutura de clientes do servidor*/
 bool DropboxServer::logInClient(int socket, char* userId){
 
     uint i;
     bool foundUser = false;
     CLIENT newClient;
 
+    pthread_mutex_lock(&_logInMutex);
     //Verifica se usuário não atingiu o limite de conexões
     for (i = 0; i < _clients.size(); i++) {
         if(strcmp(userId, _clients.at(i).userId) == 0){
             foundUser = true;
             if(_clients.at(i).devices[0] > 0 && _clients.at(i).devices[1] > 0){
-                fprintf(stderr, "Socket %d - User already has 2 connections\n", socket);
+                printf("Socket %d - User already has 2 connections\n", socket);
+                pthread_mutex_unlock(&_logInMutex);
                 return false;
             }
             break;
@@ -138,7 +139,8 @@ bool DropboxServer::logInClient(int socket, char* userId){
             _clients.at(i).devices[1] = socket;
         }
         else{
-            fprintf(stderr, "Socket %d - Internal error, one position sould be empty\n", socket);
+            printf("Socket %d - Internal error, one position sould be empty\n", socket);
+            pthread_mutex_unlock(&_logInMutex);
             return false;
         }
     }
@@ -149,14 +151,37 @@ bool DropboxServer::logInClient(int socket, char* userId){
         newClient.logged_in = 1;
         strncpy(newClient.userId, userId, sizeof(newClient.userId));
         _clients.push_back(newClient);
-
     }
+    pthread_mutex_unlock(&_logInMutex);
     return true;
 }
 
-/*
-*   Faz liste(), accept() e retorna o socket de comunicação
-*/
+/*Remove um usuário da estrutura de clientes do servidor*/
+void DropboxServer::logOutClient(int socket, char* userId){
+
+    uint i;
+
+    //Verifica se usuário não atingiu o limite de conexões
+    for (i = 0; i < _clients.size(); i++) {
+        if(strcmp(userId, _clients.at(i).userId) == 0){
+            pthread_mutex_lock(&_logOutMutex);
+            if(_clients.at(i).devices[0] == socket){
+                _clients.at(i).devices[0] = -1;
+            }
+            else if(_clients.at(i).devices[1] == socket){
+                _clients.at(i).devices[1] = -1;
+            }
+            else{
+                printf("Internal error on logout\n");
+            }
+            pthread_mutex_unlock(&_logOutMutex);
+            return;
+        }
+    }
+    printf("Internal error 2 on logout\n");
+}
+
+/*Faz liste(), accept() e retorna o socket de comunicação*/
 int DropboxServer::listenAndAccept(){
 
     struct sockaddr_in clientAddress;
@@ -168,23 +193,20 @@ int DropboxServer::listenAndAccept(){
     newSocket = accept(_serverSocket, (struct sockaddr*) &clientAddress, &clientLength);
 
     if(newSocket == -1){
-        fprintf(stderr, "DropboxServer - Error accepting connection\n");
+        printf("DropboxServer - Error accepting connection\n");
     }
 
     return newSocket;
 }
 
-/*
-*   Faz o socket() e bind() do servidor
-*   Retorno: socket ou -1 (em caso de erro)
-*/
+/*Faz o socket() e bind() do servidor, retorna -1 ou o valor do socket*/
 int DropboxServer::initialize(){
 
     struct sockaddr_in serverAddress;
     //Inicializando socket
     _serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if(_serverSocket == -1){
-        fprintf(stderr, "DropboxServer - Error initializing socket\n");
+        printf("DropboxServer - Error initializing socket\n");
         return -1;
     }
     //Inicializando struct do socket do servidor
@@ -194,32 +216,17 @@ int DropboxServer::initialize(){
 	bzero(&(serverAddress.sin_zero), 8);
     //Faz o bind
     if(bind(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
-        fprintf(stderr, "DropboxServer - Error binding server\n");
+        printf("DropboxServer - Error binding server\n");
         return -1;
     }
     return _serverSocket;
 }
 
-/*Envia um número inteiro para um deterinado socket*/
-bool DropboxServer::sendInteger(int socket, int message){
-
-	char buffer[12];
-
-    snprintf(buffer, sizeof(buffer), "%d", message);
-    if(write(socket, buffer, strlen(buffer)) < 0){
-        fprintf(stderr, "DropboxServer - Error sending integer %d\n", message);
-        return false;
-    }
-    return true;
-}
-
-
 /*Fecha a conexão com um cliente*/
 void DropboxServer::closeConnection(int socket){
-	
-	fprintf(stderr, "DropboxServer - Closing connection with socket %d\n", socket);
+
+	printf("DropboxServer - Closing connection with socket %d\n", socket);
 	close(socket);
 }
 
 int DropboxServer::getSocket(){ return _serverSocket; }
-

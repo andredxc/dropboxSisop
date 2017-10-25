@@ -8,22 +8,16 @@
 #include <sys/inotify.h>
 #include <pthread.h>
 #include <netdb.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include "dropboxClient.h"
 #include "../Util/dropboxUtil.h"
 
-/*
-*   Constructor
-*/
+/*Constructor*/
 DropboxClient::DropboxClient(){}
 
 //------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
 
-/*
-*   Estabelece conexão
-*/
+/*Estabelece conexão*/
 int DropboxClient::connect_server(char* host, int port){
 
     struct hostent *server;
@@ -55,12 +49,10 @@ int DropboxClient::connect_server(char* host, int port){
     return _socket;
 }
 
-/***/
+/**/
 void DropboxClient::sync_client(){}
 
-/*
-*   Envia arquivo
-*/
+/*Envia arquivo*/
 void DropboxClient::send_file(char* file){
 
     if(access(file, F_OK) == -1){
@@ -70,21 +62,19 @@ void DropboxClient::send_file(char* file){
     }
 }
 
-/***/
+/**/
 void DropboxClient::get_file(char* file){}
 
-/***/
+/**/
 void DropboxClient::delete_file(char* file){}
 
-/***/
+/**/
 void DropboxClient::close_connection(){}
 
 
 //------------------------------------------------OUTRAS FUNÇÕES
 
-/*
-*   Faz o loop que lê comandos do usuário e retorna os argumentos por meio de comandBuffer
-*/
+/*Faz o loop que lê comandos do usuário e retorna os argumentos por meio de comandBuffer*/
 int DropboxClient::readComand(char* comandBuffer, int bufferSize){
 
     char comand[MAXCOMANDSIZE];
@@ -141,9 +131,7 @@ int DropboxClient::readComand(char* comandBuffer, int bufferSize){
     }
 }
 
-/*
-*   Envia o comando ao servidor
-*/
+/*Envia o comando ao servidor*/
 bool DropboxClient::sendComand(char* comand, int length){
 
     if(write(_socket, comand, length) < 0){
@@ -156,9 +144,7 @@ bool DropboxClient::sendComand(char* comand, int length){
     }
 }
 
-/*
-*   Verifica se hove alterações dentro do diretório em path
-*/
+/*Verifica se hove alterações dentro do diretório em path*/
 void* DropboxClient::fileWatcher(void* path){
 
     int fileDesc, watchDesc, length, isRunning = 1;
@@ -216,9 +202,7 @@ void* DropboxClient::fileWatcher(void* path){
     return NULL;
 }
 
-/*
-*   Executa as ações referentes ao comand get_sync_dir
-*/
+/*Executa as ações referentes ao comand get_sync_dir*/
 void DropboxClient::getSyncDirComand(){
 
     char syncDirPath[200];
@@ -228,28 +212,13 @@ void DropboxClient::getSyncDirComand(){
     if(access(syncDirPath, F_OK) == -1){
         //Diretório não encontrado
         fprintf(stderr, "DropboxClient - Directory \'%s\' doesn't exist\n", syncDirPath);
-        sendInteger(CP_SYNC_DIR_NOT_FOUND);
+        sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
     }
     else{
         //Diretório encontrado
-        sendInteger(CP_SYNC_DIR_FOUND);
+        sendInteger(_socket, CP_SYNC_DIR_FOUND);
         sync_client();
     }
-}
-
-/*
-*   Envia um int ao servidor
-*/
-bool DropboxClient::sendInteger(int message){
-
-    char buffer[12];
-
-    snprintf(buffer, sizeof(buffer), "%d", message);
-    if(write(_socket, buffer, strlen(buffer)) < 0){
-        fprintf(stderr, "DropboxClient - Error sending integer %d\n", message);
-        return false;
-    }
-    return true;
 }
 
 /*Envia o userId para o servidor e aguarda confirmação de log in*/

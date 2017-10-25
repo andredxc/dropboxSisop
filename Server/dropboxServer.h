@@ -28,6 +28,7 @@ class DropboxServer{
     private:
         int _serverSocket;
         std::vector<CLIENT> _clients;
+        pthread_mutex_t _logInMutex, _logOutMutex;
 
     public:
         DropboxServer();
@@ -39,7 +40,6 @@ class DropboxServer{
         int initialize();
 		void handleConnection(int* socket);
         int listenAndAccept();
-        bool sendInteger(int socket, int message);
         void closeConnection(int socket);
 
         int getSocket();
@@ -48,5 +48,6 @@ class DropboxServer{
     //Funções extras
 		static void* handleConnectionThread(void* args);
         bool logInClient(int socket, char* userId);
+        void logOutClient(int socket, char* userId);
 
 };
