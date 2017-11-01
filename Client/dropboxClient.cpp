@@ -89,9 +89,15 @@ void DropboxClient::sync_client(){
 void DropboxClient::send_file(char* filePath){
 
     FILE *file;
-    long fileSize;
-    int i, iterations;
+    int fileSize, i, iterations, sizeSent, sizeToSend;
+    char buffer[CP_MAX_MSG_SIZE];
 
+    //Verifica o tamanho do nome do arquivo
+    if(strlen(basename(filePath)) > CP_MAX_MSG_SIZE-1){
+        fprintf(stderr, "DropboxClient - Name size limit exceded\n");
+        return;
+    }
+    //Abre o arquivo para leitura
     if(!(file = fopen(filePath, "r"))){
         //Erro na abertura
         fprintf(stderr, "DropboxClient - Error opening file \'%s\'\n", filePath);
@@ -100,6 +106,7 @@ void DropboxClient::send_file(char* filePath){
     //Descobre o tamanho do arquivo
     fseek(file, 0, SEEK_END);
     fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
     //Envia pedido de envio de arquivo
     sendInteger(_socket, CP_CLIENT_SEND_FILE);
     if(!receiveExpectedInt(_socket, CP_CLIENT_SEND_FILE_ACK)){
@@ -107,8 +114,20 @@ void DropboxClient::send_file(char* filePath){
         fclose(file);
         return;
     }
+    //Envia o nome do arquivo
+    bzero(buffer, sizeof(buffer));
+    strncpy(buffer, basename(filePath), sizeof(buffer));
+    if(write(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error sending filename \'%s\'\n", buffer);
+        fclose(file);
+        return;
+    }
     //Envia o tamanho do arquivo
-    sendInteger(_socket, fileSize);
+    if(!sendInteger(_socket, fileSize)){
+        fprintf(stderr, "DropboxClient - Error sending file size\n");
+        fclose(file);
+        return;
+    }
     if(!receiveExpectedInt(_socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
         fprintf(stderr, "DropboxClient - Error receiving size confirmation from server\n");
         fclose(file);
@@ -116,13 +135,31 @@ void DropboxClient::send_file(char* filePath){
     }
     //Começa o envio do arquivo
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
+    sizeSent = 0;
     for(i = 0; i < iterations; i++){
-        //Manda pedaçoe do arquivo com, no máximo, CP_MAX_MSG_SIZE bytes
+
+        sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
+        bzero(buffer, sizeof(buffer));
+        fread((void*) buffer, sizeToSend, 1, file);
+        if(write(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error sending part of file %d\n", i);
+        }
+        sizeSent += sizeToSend;
     }
-
-
-
-
+    fclose(file);
+    //Envia mesagem informando fim do arquivo
+    if(!sendInteger(_socket, CP_SEND_FILE_COMPLETE)){
+        fprintf(stderr, "DropboxClient - Error sending file send complietion message\n");
+        return;
+    }
+    //Recebe ack
+    if(!receiveExpectedInt(_socket, CP_SEND_FILE_COMPLETE_ACK)){
+        fprintf(stderr, "DropboxClient - Error receiving ack for file completion\n");
+        return;
+    }
+    if(sizeSent == fileSize){
+        fprintf(stderr, "DropboxClient - File sent successfully\n");
+    }
 }
 
 /**/
@@ -131,10 +168,16 @@ void DropboxClient::get_file(char* file){}
 /**/
 void DropboxClient::delete_file(char* file){}
 
-/**/
-void DropboxClient::close_connection(){}
+/*Termina a conexão*/
+void DropboxClient::close_connection(){
 
-
+    if(!sendInteger(_socket, CP_CLIENT_END_CONNECTION)){
+        fprintf(stderr, "DropboxClient - Error sending close connection message\n");
+    }
+    else{
+        fprintf(stderr, "DropboxClient - Closing connection with server\n");
+    }
+}
 //------------------------------------------------OUTRAS FUNÇÕES
 
 /*Faz o loop que lê comandos do usuário e retorna os argumentos por meio de comandBuffer*/
@@ -276,16 +319,16 @@ void DropboxClient::getSyncDirComand(){
     char syncDirPath[200];
     int errorCode;
 
-    snprintf(syncDirPath, sizeof(syncDirPath), "%s%s", CLIENT_SYNC_DIR_PATH, _userId);
+    snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, _userId);
     //Verifica se sync_dir já existe no cliente
     if(access(syncDirPath, F_OK) == -1){
         //Diretório não encontrado
         fprintf(stderr, "DropboxClient - Directory \'%s\' doesn't exist\n", syncDirPath);
         sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
-
         if((errorCode = mkdir(syncDirPath, S_IRWXU)) != 0){
             fprintf(stderr, "DropboxClient - Error %d creating directory %s\n", errorCode, syncDirPath);
             //TODO: Terminar conexão ou algo parecido
+            close_connection();
             return;
         }
     }
@@ -293,7 +336,7 @@ void DropboxClient::getSyncDirComand(){
         //Diretório encontrado
         sendInteger(_socket, CP_SYNC_DIR_FOUND);
     }
-    sync_client();
+    // sync_client();
 }
 
 /*Envia o userId para o servidor e aguarda confirmação de log in*/

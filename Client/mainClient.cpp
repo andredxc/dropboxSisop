@@ -51,8 +51,8 @@ int main(int argc, char** argv){
     while(isRunning){
         switch (client.readComand(comand, sizeof(comand))){
             case COM_UPLOAD:
-                fprintf(stderr, "COM_UPLOAD\n");
-                fprintf(stderr, "Comand read: \'%s\'\n", comand);
+                strncpy(comand, &comand[7], sizeof(comand));
+                client.send_file(comand);
                 break;
             case COM_DOWNLOAD:
                 fprintf(stderr, "COM_DOWNLOAD\n");
@@ -70,6 +70,7 @@ int main(int argc, char** argv){
                 client.getSyncDirComand();
                 break;
             case COM_EXIT:
+                client.close_connection();
                 isRunning = 0;
                 break;
         }

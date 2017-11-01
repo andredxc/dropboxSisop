@@ -13,6 +13,11 @@
 #define CP_CLIENT_SEND_FILE_ACK			6
 #define CP_CLIENT_SEND_FILE_SIZE_ACK	7
 
+#define CP_CLIENT_END_CONNECTION        8
+
+#define CP_SEND_FILE_COMPLETE           9
+#define CP_SEND_FILE_COMPLETE_ACK       10
+
 #define CP_MAX_MSG_SIZE  				256
 
 //Outras constantes
