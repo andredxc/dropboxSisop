@@ -86,13 +86,43 @@ void DropboxClient::sync_client(){
 }
 
 /*Envia um arquivo*/
-void DropboxClient::send_file(char* file){
+void DropboxClient::send_file(char* filePath){
 
-    if(access(file, F_OK) == -1){
-        //Arquivo não existe
-        fprintf(stderr, "DropboxClient - File \'%s\' doesn't exist\n", file);
+    FILE *file;
+    long fileSize;
+    int i, iterations;
+
+    if(!(file = fopen(filePath, "r"))){
+        //Erro na abertura
+        fprintf(stderr, "DropboxClient - Error opening file \'%s\'\n", filePath);
         return;
     }
+    //Descobre o tamanho do arquivo
+    fseek(file, 0, SEEK_END);
+    fileSize = ftell(file);
+    //Envia pedido de envio de arquivo
+    sendInteger(_socket, CP_CLIENT_SEND_FILE);
+    if(!receiveExpectedInt(_socket, CP_CLIENT_SEND_FILE_ACK)){
+        fprintf(stderr, "DropboxClient - Error receiving confirmation from server\n");
+        fclose(file);
+        return;
+    }
+    //Envia o tamanho do arquivo
+    sendInteger(_socket, fileSize);
+    if(!receiveExpectedInt(_socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
+        fprintf(stderr, "DropboxClient - Error receiving size confirmation from server\n");
+        fclose(file);
+        return;
+    }
+    //Começa o envio do arquivo
+    iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
+    for(i = 0; i < iterations; i++){
+        //Manda pedaçoe do arquivo com, no máximo, CP_MAX_MSG_SIZE bytes
+    }
+
+
+
+
 }
 
 /**/

@@ -54,7 +54,6 @@ void* DropboxServer::handleConnectionThread(void* args){
         free(args);
         return NULL;
     }
-    fprintf(stderr, "USERID: %s\n", receiveBuffer);
     //Valida o userId recebido
     if(server->logInClient(socket, receiveBuffer)){
 		//Logou com sucesso
