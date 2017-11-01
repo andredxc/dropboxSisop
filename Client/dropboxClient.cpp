@@ -9,6 +9,8 @@
 #include <pthread.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include "dropboxClient.h"
 #include "../Util/dropboxUtil.h"
 
@@ -17,7 +19,7 @@ DropboxClient::DropboxClient(){}
 
 //------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
 
-/*Estabelece conexão*/
+/*Estabelece a conexão*/
 int DropboxClient::connect_server(char* host, int port){
 
     struct hostent *server;
@@ -49,10 +51,41 @@ int DropboxClient::connect_server(char* host, int port){
     return _socket;
 }
 
-/**/
-void DropboxClient::sync_client(){}
+/*Sincroniza os arquivos entre cliente e servidor*/
+void DropboxClient::sync_client(){
 
-/*Envia arquivo*/
+    DIR *localSyncDir;
+    FILE *curFile;
+    struct dirent *entry;
+    char syncDirPath[200], curFilePath[200];
+    long curFileSize;
+
+    snprintf(syncDirPath, sizeof(syncDirPath), "%s%s/", CLIENT_SYNC_DIR_PATH, _userId);
+    if((localSyncDir = opendir(syncDirPath)) != NULL){
+        while((entry = readdir(localSyncDir)) != NULL){
+            //Para cada arquivo no diretório
+            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
+                continue;
+            }
+            //Para todos os arquivos úteis
+            snprintf(curFilePath, sizeof(curFilePath), "%s%s", syncDirPath, entry->d_name);
+            if(!(curFile = fopen(curFilePath, "r"))){
+                fprintf(stderr, "DropboxClient - Erro abrindo arquivo %s em\n", curFilePath);
+                continue;
+            }
+            //Descobrindo tamanho do arquivo
+            fseek(curFile, 0, SEEK_END);
+            curFileSize = ftell(curFile);
+            fseek(curFile, 0, SEEK_SET);
+            fprintf(stderr, "NOME DO ARQUIVO: %s\n", curFilePath);
+            fprintf(stderr, "TAMANHO DO ARQUVO: %ld\n", curFileSize);
+        }
+        fprintf(stderr, "FIM DOS ARQUIVOS\n");
+    }
+    closedir(localSyncDir);
+}
+
+/*Envia um arquivo*/
 void DropboxClient::send_file(char* file){
 
     if(access(file, F_OK) == -1){
@@ -211,6 +244,7 @@ void* DropboxClient::fileWatcher(void* path){
 void DropboxClient::getSyncDirComand(){
 
     char syncDirPath[200];
+    int errorCode;
 
     snprintf(syncDirPath, sizeof(syncDirPath), "%s%s", CLIENT_SYNC_DIR_PATH, _userId);
     //Verifica se sync_dir já existe no cliente
@@ -218,12 +252,18 @@ void DropboxClient::getSyncDirComand(){
         //Diretório não encontrado
         fprintf(stderr, "DropboxClient - Directory \'%s\' doesn't exist\n", syncDirPath);
         sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
+
+        if((errorCode = mkdir(syncDirPath, S_IRWXU)) != 0){
+            fprintf(stderr, "DropboxClient - Error %d creating directory %s\n", errorCode, syncDirPath);
+            //TODO: Terminar conexão ou algo parecido
+            return;
+        }
     }
     else{
         //Diretório encontrado
         sendInteger(_socket, CP_SYNC_DIR_FOUND);
-        sync_client();
     }
+    sync_client();
 }
 
 /*Envia o userId para o servidor e aguarda confirmação de log in*/
@@ -234,7 +274,7 @@ bool DropboxClient::sendUserId(char* userId){
 	strncpy(buffer, userId, sizeof(buffer));
 	strncpy(_userId, userId, sizeof(_userId));
 	//Envia a identificação para o servidor
-	if(write(_socket, buffer, sizeof(CP_MAX_MSG_SIZE)) < 0){
+	if(write(_socket, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error sending userId\n");
         return false;
     }

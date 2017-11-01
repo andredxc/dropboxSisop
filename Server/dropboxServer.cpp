@@ -47,13 +47,14 @@ void* DropboxServer::handleConnectionThread(void* args){
     printf("DropboxServer - Starting thread with comunication socket = %d\n", socket);
 
     //Recebe o userId do cliente
-    bzero(receiveBuffer, strlen(receiveBuffer));
+    bzero(receiveBuffer, sizeof(receiveBuffer));
     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
         printf("Socket %d - Error receiving userId\n", socket);
         server->closeConnection(socket);
         free(args);
         return NULL;
     }
+    fprintf(stderr, "USERID: %s\n", receiveBuffer);
     //Valida o userId recebido
     if(server->logInClient(socket, receiveBuffer)){
 		//Logou com sucesso
