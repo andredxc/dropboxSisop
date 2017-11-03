@@ -6,7 +6,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <sys/stat.h>
 #include "dropboxServer.h"
+#include "../Util/dropboxUtil.h"
 
 /*Utilizada na criação da thread pois a função tem que ser static*/
 struct classAndSocket{
@@ -23,19 +25,44 @@ DropboxServer::DropboxServer(){
 //--------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
 
 /*Sincroniza a parsta sync_dir com o cliente*/
-void DropboxServer::sync_server(){
+void DropboxServer::sync_server(int socket, char* userId){
+
+    char dirPath[512];
+    int errorCode;
+
+    //Cria os diretórios referentes ao sync_dir
+    if(access(SERVER_SYNC_DIR_PATH, F_OK) == -1){
+        //Diretório dos sync_dir não existe
+        if((errorCode = mkdir(SERVER_SYNC_DIR_PATH, S_IRWXU)) != 0){
+            fprintf(stderr, "Socket %d - Error %d creating %s\n", socket, errorCode, SERVER_SYNC_DIR_PATH);
+            return;
+        }
+    }
+    snprintf(dirPath, sizeof(dirPath), "%ssync_dir_%s", SERVER_SYNC_DIR_PATH, userId);
+    if(access(dirPath, F_OK) == -1){
+        //Diretório do sync_dir desse usuário não existe
+        fprintf(stderr, "Socket %d - Creating directory \'%s\'\n", socket, dirPath);
+        if((errorCode = mkdir(dirPath, S_IRWXU)) != 0){
+            fprintf(stderr, "Socket %d - Error %d creating %s\n", socket, errorCode, dirPath);
+            return;
+        }
+    }
+    //Sincroniza diretórios
+
 }
 
 /*Recebe um arquivo do cliente*/
-void DropboxServer::receive_file(int socket, char* file){
+void DropboxServer::receive_file(int socket, char* userId, char* file){
 
-    char buffer[CP_MAX_MSG_SIZE];
+    char buffer[CP_MAX_MSG_SIZE], filePath[512];
     int fileSize, iterations, sizeReceived, sizeToReceive, i;
     FILE *newFile;
 
+    //Define o path do arquivo
+    snprintf(filePath, sizeof(filePath), "%ssync_dir_%s/%s", SERVER_SYNC_DIR_PATH, userId, basename(file));
     //Cria o arquivo
-    if(!(newFile = fopen(basename(file), "w"))){
-        fprintf(stderr, "Socket %d - Error creating file \'%s\'\n", socket, file);
+    if(!(newFile = fopen(filePath, "w"))){
+        fprintf(stderr, "Socket %d - Error creating file \'%s\'\n", socket, filePath);
         return;
     }
     //Recebe o tamanho do arquivo
@@ -71,15 +98,22 @@ void DropboxServer::receive_file(int socket, char* file){
         fprintf(stderr, "Socket %d - Error sending CP_SEND_FILE_COMPLETE_ACK\n", socket);
         return;
     }
+    bzero(buffer, sizeof(buffer));
+    if(read(socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "Socket %d - Error receiving file's M time\n", socket);
+    }
     if(sizeReceived == fileSize){
         fprintf(stderr, "Socket %d - File received successfully\n", socket);
+    }
+    //Preenche as estruturas internas do servidor
+    if(!assignNewFile(file, buffer, fileSize, userId)){
+        fprintf(stderr, "Socket %d - Error assigning new file \'%s\'\n", socket, file);
     }
 }
 
 /*Envia um arquivo para o cliente*/
 void DropboxServer::send_file(char* file){
 }
-
 //--------------------------------------------------FUNÇÕES EXTRAS
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create*/
@@ -140,10 +174,8 @@ void* DropboxServer::handleConnectionThread(void* args){
         return NULL;
     }
     if(atoi(receiveBuffer) == CP_SYNC_DIR_FOUND){
-        fprintf(stderr, "Socket %d - Sync dir found\n", socket);
     }
     else if(atoi(receiveBuffer) == CP_SYNC_DIR_NOT_FOUND){
-        fprintf(stderr, "Socket %d - Sync dir not found\n", socket);
     }
     else{
         fprintf(stderr, "Socket %d - Error didn't receive sync dir message\n", socket);
@@ -152,6 +184,7 @@ void* DropboxServer::handleConnectionThread(void* args){
         free(args);
         return NULL;
     }
+    server->sync_server(socket, userId);
     //Fica no aguardo de mensagens do cliente
     while(isRunning){
         //Recebe comando do cliente
@@ -177,7 +210,7 @@ void* DropboxServer::handleConnectionThread(void* args){
                         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                     }
                     else{
-                        server->receive_file(socket, receiveBuffer);
+                        server->receive_file(socket, userId, receiveBuffer);
                     }
                     break;
                 default:
@@ -188,6 +221,38 @@ void* DropboxServer::handleConnectionThread(void* args){
     }
     free(args);
 	return NULL;
+}
+
+/*Atribui um novo arquivo a um usuário*/
+bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId){
+
+    uint i, j;
+    bool done = false;
+
+    //Encontra a estrutura CLIENT corespondente a userId
+    for (i = 0; i < _clients.size(); i++){
+        if(strcmp(userId, _clients.at(i).userId) == 0){
+            //Encontrou o cliente correspontente
+            j = 0;
+            while(!done && j < MAXFILES){
+                //Encontra o primeiro espaço vazio em file_info[]
+                if(strlen(_clients.at(i).file_info[j].name) == 0){
+                    //Encontrou um espaço vazio
+                    strncpy(_clients.at(i).file_info[j].name, basename(fileName), sizeof(_clients.at(i).file_info[j].name));
+                    strncpy(_clients.at(i).file_info[j].extension, getFileExtension(basename(fileName)),
+                            sizeof(_clients.at(i).file_info[j].extension));
+                    strncpy(_clients.at(i).file_info[j].last_modified, fileMTime,
+                            sizeof(_clients.at(i).file_info[j].last_modified));
+                    _clients.at(i).file_info[j].size = fileSize;
+                    done = true;
+                    printClient(_clients.at(i), true);
+                    return true;
+                }
+                j++;
+            }
+        }
+    }
+    return false;
 }
 
 /*Adiciona um usuário a estrutura de clientes do servidor*/
@@ -231,6 +296,9 @@ bool DropboxServer::logInClient(int socket, char* userId){
         newClient.devices[1] = -1;
         newClient.logged_in = 1;
         strncpy(newClient.userId, userId, sizeof(newClient.userId));
+        for(i = 0; i < MAXFILES; i++){
+            bzero(newClient.file_info[i].name, sizeof(newClient.file_info[i].name));
+        }
         _clients.push_back(newClient);
     }
     pthread_mutex_unlock(&_logInMutex);

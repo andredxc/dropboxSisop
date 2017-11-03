@@ -1,3 +1,6 @@
+#ifndef DROPBOXCLIENT_H
+#define DROPBOXCLIENT_H
+
 #include <stdio.h>
 #include "../Util/dropboxUtil.h"
 
@@ -10,10 +13,11 @@ class DropboxClient{
     #define COM_GET_SYNC_DIR    5
     #define COM_EXIT            6
 
-    #define MAXCOMANDSIZE       50
+    #define MAXCOMANDSIZE       256
 
     private:
         int _socket;
+        bool _isConnected;
         char _userId[MAXNAME];
 
     public:
@@ -32,9 +36,12 @@ class DropboxClient{
         bool sendUserId(char* userId);
 
         int getSocket();
+        bool getIsConnected();
         void setUserId(char* userId);
 
     private:
     //Funções extras
         void* fileWatcher(void* dirPath);
 };
+
+#endif

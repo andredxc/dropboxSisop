@@ -1,3 +1,2 @@
 
 - Terminar a conexão
-- Não cria sync_dir quando a pasta clientFiles não existe

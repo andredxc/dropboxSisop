@@ -1,29 +1,32 @@
+#ifndef DROPBOXSERVER_H
+#define DROPBOXSERVER_H
+
 #include <stdio.h>
 #include <vector>
 #include "../Util/dropboxUtil.h"
 
+#define MAXNAME 20
+#define MAXFILES 20
+
+#define SERVER_PORT 4000
+#define SERVER_MAX_CLIENTES 20
+#define SERVER_BACKLOG 20
+
+typedef struct file_info{
+    char name[MAXNAME];
+    char extension[MAXNAME];
+    char last_modified[MAXFILES];
+    int size;
+} FILE_INFO;
+
+typedef struct client{
+    int devices[2];
+    char userId[MAXNAME];
+    FILE_INFO file_info[MAXFILES];
+    int logged_in;
+} CLIENT;
+
 class DropboxServer{
-
-    #define MAXNAME 20
-    #define MAXFILES 20
-
-    #define SERVER_PORT 4000
-    #define SERVER_MAX_CLIENTES 20
-    #define SERVER_BACKLOG 20
-
-    typedef struct file_info{
-        char name[MAXNAME];
-        char extensions[MAXNAME];
-        char last_modified[MAXFILES];
-        int size;
-    } FILE_INFO;
-
-    typedef struct client{
-        int devices[2];
-        char userId[MAXNAME];
-        FILE_INFO file_info[MAXFILES];
-        int logged_in;
-    } CLIENT;
 
     private:
         int _serverSocket;
@@ -33,8 +36,8 @@ class DropboxServer{
     public:
         DropboxServer();
     //Funções definidas na especificação
-        void sync_server();
-        void receive_file(int socket, char* file);
+        void sync_server(int socket, char* userId);
+        void receive_file(int socket, char* userId, char* file);
         void send_file(char* file);
     //Funções extras
         int initialize();
@@ -47,7 +50,10 @@ class DropboxServer{
     private:
     //Funções extras
 		static void* handleConnectionThread(void* args);
+        bool assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId);
         bool logInClient(int socket, char* userId);
         void logOutClient(int socket, char* userId);
 
 };
+
+#endif

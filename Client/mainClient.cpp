@@ -42,13 +42,13 @@ int main(int argc, char** argv){
     fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
     fprintf(stderr, "André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
     //Define o nome de usuário
-    //~ client.setUserId(argv[1]);
+    // client.setUserId(argv[1]);
 
     //Cria a thread que verifica por alterações nos arquivos
     // pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");
 
     //Lẽ comandos do usuário
-    while(isRunning){
+    while(client.getIsConnected()){
         switch (client.readComand(comand, sizeof(comand))){
             case COM_UPLOAD:
                 strncpy(comand, &comand[7], sizeof(comand));
@@ -71,7 +71,6 @@ int main(int argc, char** argv){
                 break;
             case COM_EXIT:
                 client.close_connection();
-                isRunning = 0;
                 break;
         }
     }

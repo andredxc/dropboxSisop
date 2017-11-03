@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -43,4 +44,59 @@ bool receiveExpectedInt(int socket, int message){
 		return false;
 	}
 	return true;
+}
+
+/*Retorna a extensão de um arquivo*/
+const char *getFileExtension(const char *filename){
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
+}
+
+/*Descobre o tempo de modificação de um arquivo*/
+void getMTime(const char* filePath, char* buffer, int bufferSize){
+
+    struct stat statBuff;
+
+    if(stat(filePath, &statBuff)){
+        bzero(buffer, bufferSize);
+        return;
+    }
+    strftime(buffer, bufferSize, "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_mtime));
+}
+
+/*Imprime a struct file_info na tela*/
+void printFileInfo(FILE_INFO file){
+
+    fprintf(stderr, "   Printing file --------\n");
+    fprintf(stderr, "    Name: %s\n", file.name);
+    fprintf(stderr, "    Extension: %s\n", file.extension);
+    fprintf(stderr, "    M time: %s\n", file.last_modified);
+    fprintf(stderr, "    Size: %d\n", file.size);
+    fprintf(stderr, "\n");
+}
+
+/*Imprime a struct client na tela*/
+void printClient(CLIENT client, bool printAll){
+
+    int i;
+
+    fprintf(stderr, "Printing client --------\n");
+    fprintf(stderr, "User ID: %s\n", client.userId);
+    fprintf(stderr, "Devices: [0]: %d    [1]: %d\n", client.devices[0], client.devices[1]);
+    fprintf(stderr, "Logged in: %d\n", client.logged_in);
+    fprintf(stderr, "Files:\n");
+    for (i = 0; i < MAXFILES; i++) {
+        if(strlen(client.file_info[i].name) > 0){
+            if(printAll){
+                //Imprimie todas as informações de todos os arquivos
+                printFileInfo(client.file_info[i]);
+            }
+            else{
+                //Imprime de forma reduzida
+                fprintf(stderr, "    %s\n", client.file_info[i].name);
+            }
+        }
+    }
+    fprintf(stderr, "End of client ----------\n");
 }

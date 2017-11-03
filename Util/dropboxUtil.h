@@ -1,4 +1,8 @@
+#ifndef DROPBOXUTIL_H
+#define DROPBOXUTIL_H
+
 #include <stdlib.h>
+#include "../Server/dropboxServer.h"
 
 #define MAXNAME 20
 
@@ -21,8 +25,15 @@
 #define CP_MAX_MSG_SIZE  				256
 
 //Outras constantes
-#define CLIENT_SYNC_DIR_PATH    "./clientFiles/"
-#define SERVER_SYNC_DIR_PATH    "./serverFiles/"
+#define CLIENT_SYNC_DIR_PATH    "./files/clientFiles/"
+#define SERVER_SYNC_DIR_PATH    "./files/serverFiles/"
 
 bool sendInteger(int socket, int message);
 bool receiveExpectedInt(int socket, int message);
+const char *getFileExtension(const char *filename);
+const char *get_filename_ext(const char *filename);
+void getMTime(const char* filePath, char* buffer, int bufferSize);
+void printFileInfo(struct file_info file);
+void printClient(struct client client, bool printAll);
+
+#endif
