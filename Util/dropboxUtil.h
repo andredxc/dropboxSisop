@@ -20,7 +20,8 @@
 #define CP_CLIENT_END_CONNECTION        8
 
 #define CP_SEND_FILE_COMPLETE           9
-#define CP_SEND_FILE_COMPLETE_ACK       10
+#define CP_FILE_PART_RECEIVED           10
+#define CP_SEND_FILE_COMPLETE_ACK       11
 
 #define CP_MAX_MSG_SIZE  				256
 

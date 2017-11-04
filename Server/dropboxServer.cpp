@@ -81,12 +81,16 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
     for(i = 0; i < iterations; i++){
 
+        fprintf(stderr, "Socket %d - Receiving file, iteration %d of %d\n", socket, i+1, iterations);
         sizeToReceive = (fileSize - sizeReceived) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeReceived);
         bzero(buffer, sizeof(buffer));
         if(read(socket, buffer, sizeof(buffer)) < 0){
-            fprintf(stderr, "Socket %d - Error receiving part of file %d\n", socket, i);
+            fprintf(stderr, "Socket %d - Error receiving part of file %d\n", socket, i+1);
         }
         fwrite((void*) buffer, sizeToReceive, 1, newFile);
+        if(!sendInteger(socket, CP_FILE_PART_RECEIVED)){
+            fprintf(stderr, "Socket %d - Error sending ack for part %d of %d\n", socket, i+1, iterations);
+        }
         sizeReceived += sizeToReceive;
     }
     fclose(newFile);

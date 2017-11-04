@@ -143,11 +143,15 @@ void DropboxClient::send_file(char* filePath){
     sizeSent = 0;
     for(i = 0; i < iterations; i++){
 
+        fprintf(stderr, "DropboxClient - Sending file, iteration %d of %d\n", i+1, iterations);
         sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
         bzero(buffer, sizeof(buffer));
         fread((void*) buffer, sizeToSend, 1, file);
         if(write(_socket, buffer, sizeof(buffer)) < 0){
-            fprintf(stderr, "DropboxClient - Error sending part of file %d\n", i);
+            fprintf(stderr, "DropboxClient - Error sending part %d of file\n", i);
+        }
+        if(!receiveExpectedInt(_socket, CP_FILE_PART_RECEIVED)){
+            fprintf(stderr, "DropboxClient - Error receving ack for part %d of %d\n", i+1, iterations);
         }
         sizeSent += sizeToSend;
     }
