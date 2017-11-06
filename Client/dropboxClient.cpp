@@ -175,6 +175,10 @@ void DropboxClient::send_file(char* filePath){
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
     sizeSent = 0;
     for(i = 0; i < iterations; i++){
+<<<<<<< HEAD
+=======
+
+>>>>>>> 11081ee93fc69fc92f5a6afb6b8ee0690082a7b9
         fprintf(stderr, "DropboxClient - Sending file, iteration %d of %d\n", i+1, iterations);
         sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
         bzero(buffer, sizeof(buffer));
