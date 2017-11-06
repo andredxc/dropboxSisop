@@ -16,7 +16,7 @@
 
 #include "dropboxUtil.h"
 
-/*Envia um int*/
+/* Envia um int */
 bool sendInteger(int socket, int message){
 
     char buffer[CP_MAX_MSG_SIZE];
@@ -29,31 +29,38 @@ bool sendInteger(int socket, int message){
     return true;
 }
 
-/*Recebe um int e confirma seu valor de acordo com o esperado*/
+/* Recebe um int e confirma seu valor de acordo com o esperado */
 bool receiveExpectedInt(int socket, int message){
 
-	char buffer[CP_MAX_MSG_SIZE];
+  	char buffer[CP_MAX_MSG_SIZE];
 
-	bzero(buffer, sizeof(buffer));
-	if(read(socket, buffer, sizeof(buffer)) < 0){
-		fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
-		return false;
-	}
-	if(atoi(buffer) != message){
-		fprintf(stderr, "DropboxUtil - Int received wasn't expected (%d)\n", atoi(buffer));
-		return false;
-	}
-	return true;
+  	bzero(buffer, sizeof(buffer));
+  	if(read(socket, buffer, sizeof(buffer)) < 0){
+  		  fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
+		    return false;
+  	}
+  	if(atoi(buffer) != message){
+  		  fprintf(stderr, "DropboxUtil - Int received wasn't expected (%d)\n", atoi(buffer));
+		    return false;
+  	}
+  	return true;
 }
 
-/*Retorna a extensão de um arquivo*/
+/* Retorna nome de um arquivo */
+const char *getFileName(const char *filename){
+    const char *name = strrchr(filename, '/');
+    if(!name || name == filename) return "";
+    return name;
+}
+
+/* Retorna a extensão de um arquivo */
 const char *getFileExtension(const char *filename){
     const char *dot = strrchr(filename, '.');
     if(!dot || dot == filename) return "";
     return dot + 1;
 }
 
-/*Descobre o tempo de modificação de um arquivo*/
+/* Descobre o tempo de modificação de um arquivo */
 void getMTime(const char* filePath, char* buffer, int bufferSize){
 
     struct stat statBuff;
@@ -65,10 +72,37 @@ void getMTime(const char* filePath, char* buffer, int bufferSize){
     strftime(buffer, bufferSize, "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_mtime));
 }
 
-/*Imprime a struct file_info na tela*/
+void getFileSize(const char* filePath, int* buffer){
+
+    FILE *curFile;
+    long curFileSize;
+
+    if(!(curFile = fopen(filePath, "r"))){
+        fprintf(stderr, "DropboxClient - Erro abrindo arquivo %s em\n", filePath);
+    }
+
+    // Descobrindo tamanho do arquivo
+    fseek(curFile, 0, SEEK_END);
+    curFileSize = ftell(curFile);
+    fseek(curFile, 0, SEEK_SET);
+
+    *buffer = curFileSize;
+}
+
+void getFileInfo(const char* filePath, struct file_info *info){
+
+    // Monta estrutura file_info a partir do arquivo de endereço filePath
+    snprintf(info->name, sizeof(info->name), "%s", getFileName(filePath));
+    snprintf(info->extension, sizeof(info->extension), "%s", getFileExtension(filePath));
+    getMTime(filePath, info->last_modified, MAXFILES);
+    getFileSize(filePath, &(info->size));
+
+}
+
+/* Imprime a struct file_info na tela */
 void printFileInfo(FILE_INFO file){
 
-    fprintf(stderr, "   Printing file --------\n");
+    fprintf(stderr, "    Printing file --------\n");
     fprintf(stderr, "    Name: %s\n", file.name);
     fprintf(stderr, "    Extension: %s\n", file.extension);
     fprintf(stderr, "    M time: %s\n", file.last_modified);
@@ -76,7 +110,7 @@ void printFileInfo(FILE_INFO file){
     fprintf(stderr, "\n");
 }
 
-/*Imprime a struct client na tela*/
+/* Imprime a struct client na tela */
 void printClient(CLIENT client, bool printAll){
 
     int i;
@@ -89,11 +123,11 @@ void printClient(CLIENT client, bool printAll){
     for (i = 0; i < MAXFILES; i++) {
         if(strlen(client.file_info[i].name) > 0){
             if(printAll){
-                //Imprimie todas as informações de todos os arquivos
+                // Imprime todas as informações de todos os arquivos
                 printFileInfo(client.file_info[i]);
             }
             else{
-                //Imprime de forma reduzida
+                // Imprime de forma reduzida
                 fprintf(stderr, "    %s\n", client.file_info[i].name);
             }
         }

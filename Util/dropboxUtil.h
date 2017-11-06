@@ -20,7 +20,8 @@
 #define CP_CLIENT_END_CONNECTION        8
 
 #define CP_SEND_FILE_COMPLETE           9
-#define CP_SEND_FILE_COMPLETE_ACK       10
+#define CP_FILE_PART_RECEIVED           10
+#define CP_SEND_FILE_COMPLETE_ACK       11
 
 #define CP_MAX_MSG_SIZE  				256
 
@@ -35,5 +36,8 @@ const char *get_filename_ext(const char *filename);
 void getMTime(const char* filePath, char* buffer, int bufferSize);
 void printFileInfo(struct file_info file);
 void printClient(struct client client, bool printAll);
+const char *getFileName(const char *filename, char* buffer);
+void getFileSize(const char* filePath, int* buffer);
+void getFileInfo(const char* filePath, struct file_info *info);
 
 #endif

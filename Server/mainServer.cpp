@@ -19,13 +19,13 @@ int main(){
     if(server.initialize() < 0){
         return -1;
     }
+
     //Esperando por conexões e disparando threads
     while(isRunning){
-
         fprintf(stderr, "Server is listening.\n");
-		comunicationSocket = server.listenAndAccept();
-		server.handleConnection(&comunicationSocket);
-	}
+        comunicationSocket = server.listenAndAccept();
+        server.handleConnection(&comunicationSocket);
+    }
 
     close(server.getSocket());
     return 0;

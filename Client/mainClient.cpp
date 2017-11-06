@@ -21,33 +21,36 @@ int main(int argc, char** argv){
     int isRunning = 1;
     DropboxClient client;
 
-    //Verifica os argumentos passados
+    // Verifica os argumentos passados (retorna formato adequado e interrompe execução em caso de erro)
     if(argc < 4){
         printf("Usage: ./dropboxClient <user> <address> <port>\n");
         return -1;
     }
-    //Conecta ao servidor
+
+    // Conecta ao servidor
     if(client.connect_server(argv[2], atoi(argv[3])) < 0){
         return -1;
     }
-    //Envia o userId do cliente para o servidor
-    if(!client.sendUserId(argv[1])){
-		fprintf(stderr, "Error logging in\n");
-		return -1;
-	}
-	//Envia um comando get_sync_dir "implicitamente"
-	client.getSyncDirComand();
 
-    //Conexão realizada com sucesso
+    // Envia o userId do cliente para o servidor
+    if(!client.sendUserId(argv[1])){
+    		fprintf(stderr, "Error logging in\n");
+    		return -1;
+	  }
+
+  	// Envia um comando get_sync_dir "implicitamente"
+  	client.getSyncDirComand();
+
+    // Conexão realizada com sucesso
     fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
     fprintf(stderr, "André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
-    //Define o nome de usuário
+    // Define o nome de usuário
     // client.setUserId(argv[1]);
 
     //Cria a thread que verifica por alterações nos arquivos
     // pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");
 
-    //Lẽ comandos do usuário
+    //Lê comandos do usuário
     while(client.getIsConnected()){
         switch (client.readComand(comand, sizeof(comand))){
             case COM_UPLOAD:
@@ -63,9 +66,9 @@ int main(int argc, char** argv){
                 fprintf(stderr, "Comand read: \'%s\'\n", comand);
                 break;
             case COM_LIST_CLIENT:
-                fprintf(stderr, "COM_LIST_CLIENT\n");
-                fprintf(stderr, "Comand read: \'%s\'\n", comand);
+                client.list_client();
                 break;
+            break;
             case COM_GET_SYNC_DIR:
                 client.getSyncDirComand();
                 break;

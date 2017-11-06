@@ -26,7 +26,6 @@ DropboxServer::DropboxServer(){
 
 /*Sincroniza a parsta sync_dir com o cliente*/
 void DropboxServer::sync_server(int socket, char* userId){
-
     char dirPath[512];
     int errorCode;
 
@@ -58,14 +57,16 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
     int fileSize, iterations, sizeReceived, sizeToReceive, i;
     FILE *newFile;
 
-    //Define o path do arquivo
+    // Define o path do arquivo
     snprintf(filePath, sizeof(filePath), "%ssync_dir_%s/%s", SERVER_SYNC_DIR_PATH, userId, basename(file));
-    //Cria o arquivo
+
+    // Cria o arquivo
     if(!(newFile = fopen(filePath, "w"))){
         fprintf(stderr, "Socket %d - Error creating file \'%s\'\n", socket, filePath);
         return;
     }
-    //Recebe o tamanho do arquivo
+
+    // Recebe o tamanho do arquivo
     bzero(buffer, sizeof(buffer));
     if(read(socket, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
@@ -76,17 +77,22 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
         fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
         return;
     }
-    //Recebe o arquivo
+
+    // Recebe o arquivo
     sizeReceived = 0;
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
     for(i = 0; i < iterations; i++){
 
+        fprintf(stderr, "Socket %d - Receiving file, iteration %d of %d\n", socket, i+1, iterations);
         sizeToReceive = (fileSize - sizeReceived) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeReceived);
         bzero(buffer, sizeof(buffer));
         if(read(socket, buffer, sizeof(buffer)) < 0){
-            fprintf(stderr, "Socket %d - Error receiving part of file %d\n", socket, i);
+            fprintf(stderr, "Socket %d - Error receiving part of file %d\n", socket, i+1);
         }
         fwrite((void*) buffer, sizeToReceive, 1, newFile);
+        if(!sendInteger(socket, CP_FILE_PART_RECEIVED)){
+            fprintf(stderr, "Socket %d - Error sending ack for part %d of %d\n", socket, i+1, iterations);
+        }
         sizeReceived += sizeToReceive;
     }
     fclose(newFile);
@@ -130,7 +136,7 @@ void DropboxServer::handleConnection(int* socket){
 /*Thread que realiza a comunicação entre o servidor e o cliente*/
 void* DropboxServer::handleConnectionThread(void* args){
 
-	struct classAndSocket arg = *(struct classAndSocket*)args;
+    struct classAndSocket arg = *(struct classAndSocket*)args;
     int socket;
     bool isRunning = true;
     char receiveBuffer[CP_MAX_MSG_SIZE], userId[MAXNAME];
@@ -140,7 +146,7 @@ void* DropboxServer::handleConnectionThread(void* args){
 
     fprintf(stderr, "DropboxServer - Starting thread with comunication socket = %d\n", socket);
 
-    //Recebe o userId do cliente
+    // Recebe o userId do cliente
     bzero(receiveBuffer, sizeof(receiveBuffer));
     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving userId\n", socket);
@@ -148,22 +154,22 @@ void* DropboxServer::handleConnectionThread(void* args){
         free(args);
         return NULL;
     }
-    //Valida o userId recebido
+    // Valida o userId recebido
     if(server->logInClient(socket, receiveBuffer)){
-		//Logou com sucesso
+		// Logou com sucesso
 		fprintf(stderr, "Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
 		sendInteger(socket, CP_LOGIN_SUCCESSFUL);
         strncpy(userId, receiveBuffer, sizeof(userId));
     }
     else{
-		//Falha no login
+		// Falha no login
 		fprintf(stderr, "Socket %d - Error logging user %s in\n", socket, receiveBuffer);
         sendInteger(socket, CP_LOGIN_FAILED);
         server->closeConnection(socket);
         free(args);
         return NULL;
-	}
-    //Espera pela mensagem informando se o cliente encontrou o sync_dir
+    }
+    // Espera pela mensagem informando se o cliente encontrou o sync_dir
     fprintf(stderr, "Socket %d - Waiting for sync dir message\n", socket);
     bzero(receiveBuffer, sizeof(receiveBuffer));
     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
@@ -185,9 +191,9 @@ void* DropboxServer::handleConnectionThread(void* args){
         return NULL;
     }
     server->sync_server(socket, userId);
-    //Fica no aguardo de mensagens do cliente
+    // Fica no aguardo de mensagens do cliente
     while(isRunning){
-        //Recebe comando do cliente
+        // Recebe comando do cliente
         bzero(receiveBuffer, sizeof(receiveBuffer));
         if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
             fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
@@ -220,7 +226,7 @@ void* DropboxServer::handleConnectionThread(void* args){
         }
     }
     free(args);
-	return NULL;
+    return NULL;
 }
 
 /*Atribui um novo arquivo a um usuário*/
@@ -352,22 +358,26 @@ int DropboxServer::listenAndAccept(){
 int DropboxServer::initialize(){
 
     struct sockaddr_in serverAddress;
-    //Inicializando socket
+
+    //Inicializa socket (caso não consiga, interrompe execução e retorna erro)
     _serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if(_serverSocket == -1){
         printf("DropboxServer - Error initializing socket\n");
         return -1;
     }
-    //Inicializando struct do socket do servidor
-    serverAddress.sin_family = AF_INET;
-	serverAddress.sin_port = htons(SERVER_PORT);
-	serverAddress.sin_addr.s_addr = INADDR_ANY;
-	bzero(&(serverAddress.sin_zero), 8);
-    //Faz o bind
+
+    //Inicializa struct do socket
+    serverAddress.sin_family = AF_INET; // communication domain do socket criado
+    serverAddress.sin_port = htons(SERVER_PORT); // porta do socket
+    serverAddress.sin_addr.s_addr = INADDR_ANY; // container genérico
+    bzero(&(serverAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
+                                         // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
+    //Faz o bind (atribui identidade ao socket)
     if(bind(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
         printf("DropboxServer - Error binding server\n");
         return -1;
     }
+
     return _serverSocket;
 }
 

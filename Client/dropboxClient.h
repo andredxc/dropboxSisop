@@ -39,6 +39,8 @@ class DropboxClient{
         bool getIsConnected();
         void setUserId(char* userId);
 
+        void list_client();
+
     private:
     //Funções extras
         void* fileWatcher(void* dirPath);
