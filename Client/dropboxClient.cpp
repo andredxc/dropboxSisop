@@ -304,9 +304,9 @@ void DropboxClient::send_file(char* filePath){
 /**/
 void DropboxClient::get_file(char* filePath){
 
-    FILE *file;
-    int fileSize, i, iterations, sizeSent, sizeToSend;
-    char buffer[CP_MAX_MSG_SIZE], mTime[CP_MAX_MSG_SIZE];
+    FILE *file = NULL;
+    int fileSize;
+    char buffer[CP_MAX_MSG_SIZE];
 
     // Verifica o tamanho do nome do arquivo
     if(strlen(basename(filePath)) > CP_MAX_MSG_SIZE-1){
@@ -317,7 +317,7 @@ void DropboxClient::get_file(char* filePath){
     // Envia pedido de download de arquivo
     sendInteger(_socket, CP_CLIENT_GET_FILE);
     if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_ACK)){
-        fprintf(stderr, "DropboxServer - Error receiving confirmation from server\n");
+        fprintf(stderr, "DropboxClient - Error receiving confirmation from server\n");
         fclose(file);
         return;
     }
@@ -326,7 +326,7 @@ void DropboxClient::get_file(char* filePath){
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(filePath), sizeof(buffer));
     if(write(_socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "DropboxServer - Error sending filename \'%s\'\n", buffer);
+        fprintf(stderr, "DropboxClient - Error sending filename \'%s\'\n", buffer);
         fclose(file);
         return;
     }
@@ -334,12 +334,12 @@ void DropboxClient::get_file(char* filePath){
     // Recebe o tamanho do arquivo
     bzero(buffer, sizeof(buffer));
     if(read(_socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
+        fprintf(stderr, "DropboxClient - Error receiving file size\n");
         return;
     }
     fileSize = atoi(buffer);
     if(!sendInteger(_socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
-        fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
+        fprintf(stderr, "DropboxClient - Error sending file size ack\n");
         return;
     }
 
@@ -351,7 +351,7 @@ void DropboxClient::get_file(char* filePath){
 /**/
 void DropboxClient::delete_file(char* file){}
 
-/*Termina a conexão*/
+/* Termina a conexão */
 void DropboxClient::close_connection(){
 
     if(!sendInteger(_socket, CP_CLIENT_END_CONNECTION)){

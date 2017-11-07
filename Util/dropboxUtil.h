@@ -32,7 +32,7 @@
 
 #define CP_CLIENT_GET_FILE				18
 #define CP_CLIENT_GET_FILE_ACK			19
-#define CP_CLIENT_GET_FILE_SIZE_ACK	20
+#define CP_CLIENT_GET_FILE_SIZE_ACK	    20
 
 #define CP_MAX_MSG_SIZE  				256
 

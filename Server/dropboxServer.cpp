@@ -163,8 +163,8 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
 /*Envia um arquivo para o cliente*/
 void DropboxServer::send_file(int socket, char* userId, char* filePath){
 
-    char buffer[CP_MAX_MSG_SIZE], fserverPath[512];
-    int fileSize, iterations, sizeReceived, sizeToReceive, i;
+    char fserverPath[512];
+    int fileSize;
     FILE *file;
     fprintf(stderr, "Arquivo a ser baixado1: %s \n", filePath); // TODO: DELETAR ISSO DEPOIS DE PRONTO
 
@@ -244,28 +244,6 @@ void* DropboxServer::handleConnectionThread(void* args){
         free(args);
         return NULL;
     }
-    // Espera pela mensagem informando se o cliente encontrou o sync_dir
-    // fprintf(stderr, "Socket %d - Waiting for sync dir message\n", socket);
-    // bzero(receiveBuffer, sizeof(receiveBuffer));
-    // if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
-    //     fprintf(stderr, "Socket %d - Error receiving sync_dir information\n", socket);
-    //     server->logOutClient(socket, userId);
-    //     server->closeConnection(socket);
-    //     free(args);
-    //     return NULL;
-    // }
-    // if(atoi(receiveBuffer) == CP_SYNC_DIR_FOUND){
-    // }
-    // else if(atoi(receiveBuffer) == CP_SYNC_DIR_NOT_FOUND){
-    // }
-    // else{
-    //     fprintf(stderr, "Socket %d - Error didn't receive sync dir message\n", socket);
-    //     server->logOutClient(socket, userId);
-    //     server->closeConnection(socket);
-    //     free(args);
-    //     return NULL;
-    // }
-    // server->sync_server(socket, userId);
     // Fica no aguardo de mensagens do cliente
     while(isRunning){
         // Recebe comando do cliente
@@ -564,6 +542,7 @@ void DropboxServer::closeConnection(int socket){
 	printf("DropboxServer - Closing connection with socket %d\n", socket);
     //TODO: Deslogar o usuário
 	close(socket);
+    pthread_exit(NULL);
 }
 
 int DropboxServer::getSocket(){ return _serverSocket; }
