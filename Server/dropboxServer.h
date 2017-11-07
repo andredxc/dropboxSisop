@@ -41,7 +41,7 @@ class DropboxServer{
         void send_file(int socket, char* userId, char* file);
     //Funções extras
         int initialize();
-		    void handleConnection(int* socket);
+		void handleConnection(int* socket);
         int listenAndAccept();
         void closeConnection(int socket);
 
@@ -57,6 +57,7 @@ class DropboxServer{
         int findUserIndex(const char* userId);
         void recoverData();
         int findUserFile(char* userId, char* fileName);
+        void deleteFile(int socket, char* userId);
 
 };
 

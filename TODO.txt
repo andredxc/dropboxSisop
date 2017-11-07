@@ -2,5 +2,5 @@
 - Terminar a conexão
 - Tratar falhas nos envios e recebimentos
 - Encapsular verificações dos diretórios sync_dir em uma função
-- Criar função que manda todos os arquivos do servidor para o cliente quando o sync_dir no cliente está vazio
-- Tratar upload de arquivo com nome ja existente no servidor
+
+- Tratar recebimento de mensagens vindas da thread com o fileWatcher, pode bugar tudo já que o servidor não esta esperando pelas mensagens

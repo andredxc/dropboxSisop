@@ -31,19 +31,18 @@ class DropboxClient{
         void close_connection();
     //Funções extras
         int readComand(char* comandBuffer, int bufferSize);
-        bool sendComand(char* comand, int length);
         void getSyncDirComand();
+        void listServerComand();
         bool sendUserId(char* userId);
 
         int getSocket();
         bool getIsConnected();
+        char* getUserId();
         void setUserId(char* userId);
 
         void list_client();
 
-    private:
-    //Funções extras
-        void* fileWatcher(void* dirPath);
+        static void* fileWatcher(void* clientClass);
 };
 
 #endif

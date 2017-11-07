@@ -17,7 +17,7 @@
 int main(int argc, char** argv){
 
     pthread_t fileWatcherThread;
-    char comand[MAXCOMANDSIZE];
+    char comand[MAXCOMANDSIZE], syncDirPath[256];
     int isRunning = 1;
     DropboxClient client;
 
@@ -48,7 +48,8 @@ int main(int argc, char** argv){
     // client.setUserId(argv[1]);
 
     //Cria a thread que verifica por alterações nos arquivos
-    // pthread_create(&fileWatcherThread, NULL, fileWatcher, (void*) ".");
+    snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, client.getUserId());
+    pthread_create(&fileWatcherThread, NULL, DropboxClient::fileWatcher, (void*) &client);
 
     //Lê comandos do usuário
     while(client.getIsConnected()){

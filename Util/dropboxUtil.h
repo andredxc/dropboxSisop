@@ -33,6 +33,12 @@
 #define CP_CLIENT_GET_FILE_ACK			19
 #define CP_CLIENT_GET_FILE_SIZE_ACK	    20
 
+#define CP_LIST_SERVER                  21
+#define CP_LIST_SERVER_ACK              22
+
+#define CP_CLIENT_DELETE_FILE           23
+#define CP_CLIENT_DELETE_FILE_ACK       24
+
 #define CP_MAX_MSG_SIZE  				256
 
 //Outras constantes
