@@ -25,6 +25,10 @@
 
 #define CP_SYNC_CLIENT                  12
 #define CP_SYNC_FILE_COMPUTED           13
+#define CP_SYNC_FILE_OK                 14
+#define CP_SYNC_UPLOAD_FILE             15
+#define CP_SYNC_DOWNLOAD_FILE           16
+#define CP_SYNC_FILE_NOT_FOUND          17
 
 #define CP_MAX_MSG_SIZE  				256
 

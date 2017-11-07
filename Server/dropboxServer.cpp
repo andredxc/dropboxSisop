@@ -26,8 +26,9 @@ DropboxServer::DropboxServer(){
 
 /*Sincroniza a parsta sync_dir com o cliente*/
 void DropboxServer::sync_server(int socket, char* userId){
-    char dirPath[512];
-    int errorCode;
+
+    char dirPath[512], buffer[CP_MAX_MSG_SIZE];
+    int i, errorCode, numberOfFiles, userIndex;
 
     //Cria os diretórios referentes ao sync_dir
     if(access(SERVER_SYNC_DIR_PATH, F_OK) == -1){
@@ -46,8 +47,48 @@ void DropboxServer::sync_server(int socket, char* userId){
             return;
         }
     }
-    //Sincroniza diretórios
 
+    //Sincroniza diretórios
+    numberOfFiles = countUserFiles(userId);
+    userIndex = findUserIndex(userId);
+    fprintf(stderr, "Socket %d - Number of files: %d, userIndex: %d\n", socket, numberOfFiles, userIndex);
+    if(!sendInteger(socket, numberOfFiles)){
+        fprintf(stderr, "Socket %d - Error sending number of files\n", socket);
+        return;
+    }
+
+    //Manda as informações de todos os arquivos
+    for(i = 0; i < numberOfFiles; i++){
+
+        //Envia o nome do arquivo
+        bzero(buffer, sizeof(buffer));
+        strncpy(buffer, _clients.at(userIndex).file_info[i].name, sizeof(buffer));
+        if(write(socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "Socket %d - Error sending file %d name (%s)\n", socket, i+1, buffer);
+        }
+
+        //Envia o M time do arquivo
+        bzero(buffer, sizeof(buffer));
+        strncpy(buffer, _clients.at(userIndex).file_info[i].last_modified, sizeof(buffer));
+        if(write(socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "Socket %d - Error sending file %d M time (%s)\n", socket, i+1, buffer);
+        }
+
+        //Espera resposta indicando o que fazer
+        bzero(buffer, sizeof(buffer));
+        if(read(socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "Socket %d - Error receiving answer from client\n", socket);
+            //TODO
+        }
+
+        switch (atoi(buffer)) {
+            case CP_SYNC_FILE_OK: fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_OK\n", socket); break;
+            case CP_SYNC_UPLOAD_FILE: fprintf(stderr, "Socket %d - Received CP_SYNC_UPLOAD_FILE\n", socket); break;
+            case CP_SYNC_DOWNLOAD_FILE: fprintf(stderr, "Socket %d - Received CP_SYNC_DOWNLOAD_FILE\n", socket); break;
+            case CP_SYNC_FILE_NOT_FOUND: fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_NOT_FOUND\n", socket); break;
+            default: fprintf(stderr, "Socket %d - Unrecognized answer at sync_server\n", socket); break;
+        }
+    }
 }
 
 /*Recebe um arquivo do cliente*/
@@ -170,27 +211,27 @@ void* DropboxServer::handleConnectionThread(void* args){
         return NULL;
     }
     // Espera pela mensagem informando se o cliente encontrou o sync_dir
-    fprintf(stderr, "Socket %d - Waiting for sync dir message\n", socket);
-    bzero(receiveBuffer, sizeof(receiveBuffer));
-    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving sync_dir information\n", socket);
-        server->logOutClient(socket, userId);
-        server->closeConnection(socket);
-        free(args);
-        return NULL;
-    }
-    if(atoi(receiveBuffer) == CP_SYNC_DIR_FOUND){
-    }
-    else if(atoi(receiveBuffer) == CP_SYNC_DIR_NOT_FOUND){
-    }
-    else{
-        fprintf(stderr, "Socket %d - Error didn't receive sync dir message\n", socket);
-        server->logOutClient(socket, userId);
-        server->closeConnection(socket);
-        free(args);
-        return NULL;
-    }
-    server->sync_server(socket, userId);
+    // fprintf(stderr, "Socket %d - Waiting for sync dir message\n", socket);
+    // bzero(receiveBuffer, sizeof(receiveBuffer));
+    // if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+    //     fprintf(stderr, "Socket %d - Error receiving sync_dir information\n", socket);
+    //     server->logOutClient(socket, userId);
+    //     server->closeConnection(socket);
+    //     free(args);
+    //     return NULL;
+    // }
+    // if(atoi(receiveBuffer) == CP_SYNC_DIR_FOUND){
+    // }
+    // else if(atoi(receiveBuffer) == CP_SYNC_DIR_NOT_FOUND){
+    // }
+    // else{
+    //     fprintf(stderr, "Socket %d - Error didn't receive sync dir message\n", socket);
+    //     server->logOutClient(socket, userId);
+    //     server->closeConnection(socket);
+    //     free(args);
+    //     return NULL;
+    // }
+    // server->sync_server(socket, userId);
     // Fica no aguardo de mensagens do cliente
     while(isRunning){
         // Recebe comando do cliente
@@ -218,6 +259,9 @@ void* DropboxServer::handleConnectionThread(void* args){
                     else{
                         server->receive_file(socket, userId, receiveBuffer);
                     }
+                    break;
+                case CP_SYNC_CLIENT:
+                    server->sync_server(socket, userId);
                     break;
                 default:
                     fprintf(stderr, "Socket %d - Unrecognized message %d\n", socket, atoi(receiveBuffer));
@@ -334,6 +378,41 @@ void DropboxServer::logOutClient(int socket, char* userId){
         }
     }
     printf("Internal error 2 on logout\n");
+}
+
+/* Conta o número de arquivos de um determinado usuário */
+int DropboxServer::countUserFiles(char* userId){
+
+    int i, userIndex, fileCount = 0;
+
+    userIndex = findUserIndex(userId);
+    if(userIndex >= 0){
+        //Encontrou o usuário no vetor
+        for(i = 0; i < MAXFILES; i++){
+            //Conta o número de arquivos
+            if(strlen(_clients.at(userIndex).file_info[i].name) > 0){
+                fileCount++;
+            }
+        }
+        return fileCount;
+    }
+    //Não encontrou o usuário no vetor
+    return -1;
+}
+
+/* Encontra o índice correspondente a userId no vetor de clientes */
+int DropboxServer::findUserIndex(const char* userId){
+
+    uint i;
+
+    for(i = 0; i < _clients.size(); i++){
+        if(strcmp(_clients.at(i).userId, userId) == 0){
+            //Encontrou o userId
+            return i;
+        }
+    }
+    //Não encontrou o userId
+    return -1;
 }
 
 /*Faz liste(), accept() e retorna o socket de comunicação*/

@@ -61,8 +61,6 @@ int DropboxClient::connect_server(char* host, int port){
 /* Sincroniza os arquivos entre cliente e servidor */
 void DropboxClient::sync_client(){
 
-    fprintf(stderr, "ESTA FUNÇÃO NÃO DEVE SER CHAMADA AINDA, SEU APRESSADO\n");
-
     char buffer[CP_MAX_MSG_SIZE];
     int numberOfFiles, i;
     char curFileName[CP_MAX_MSG_SIZE], curFilePath[512];
@@ -76,6 +74,7 @@ void DropboxClient::sync_client(){
         return;
     }
 
+    //Recebe o número de arquivos desse usuário no servidor
     bzero(buffer, sizeof(buffer));
     if(read(_socket, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error receiving ack for CP_SYNC_CLIENT\n");
@@ -102,27 +101,44 @@ void DropboxClient::sync_client(){
         serverFileMTime = convertTimeString(buffer);
 
         //Procura o arquivo no sync_dir local
-        snprintf(curFilePath, sizeof(curFilePath), "%s%s%s/%s", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId, curFileName);
+        snprintf(curFilePath, sizeof(curFilePath), "%ssync_dir_%s/%s", CLIENT_SYNC_DIR_PATH, _userId, curFileName);
         if(access(curFilePath, F_OK) == -1){
             //Arquivo não encontrado, deve ser baixado do servidor
             fprintf(stderr, "%s - Download file %s\n", __FUNCTION__, curFilePath);
+            if(!sendInteger(_socket, CP_SYNC_FILE_NOT_FOUND)){
+                fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_FILE_NOT_FOUND\n");
+                //TODO
+            }
         }
         else{
             //Arquivo encontrado, compara os tempos de modificação
             localFileMTime = getMTimeValue(curFilePath);
             diffTimeValue = difftime(localFileMTime, serverFileMTime);
+            fprintf(stderr, "DropboxClient - diffTimeValue: %f\n", diffTimeValue);
 
             if(diffTimeValue < 0){
                 //Arquivo mais recente está no servidor
                 fprintf(stderr, "%s - Download '%s' from server\n", __FUNCTION__, curFileName);
+                if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
+                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
+                    //TODO
+                }
             }
             else if(diffTimeValue > 0){
                 //Arquivo mais recente está no cliente
                 fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
+                if(!sendInteger(_socket, CP_SYNC_UPLOAD_FILE)){
+                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_UPLOAD_FILE\n");
+                    //TODO
+                }
             }
             else{
                 //O arquivo já está atualizado
                 fprintf(stderr, "%s - File '%s' is up to date\n", __FUNCTION__, curFileName);
+                if(!sendInteger(_socket, CP_SYNC_FILE_OK)){
+                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_UPLOAD_FILE\n");
+                    //TODO
+                }
             }
         }
     }
@@ -456,19 +472,20 @@ void DropboxClient::getSyncDirComand(){
     if(access(syncDirPath, F_OK) == -1){
         //Diretório não encontrado
         fprintf(stderr, "DropboxClient - Directory \'%s\' is being created...\n", syncDirPath);
-        sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
         if((errorCode = mkdir(syncDirPath, S_IRWXU)) != 0){
             fprintf(stderr, "DropboxClient - Error %d creating directory %s\n", errorCode, syncDirPath);
             //TODO: Terminar conexão ou algo parecido
-            close_connection();
             return;
+            close_connection();
         }
+        // sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
+        //dumpServerFiles();
     }
     else{
         // Diretório encontrado
-        sendInteger(_socket, CP_SYNC_DIR_FOUND);
+        // sendInteger(_socket, CP_SYNC_DIR_FOUND);
+        sync_client();
     }
-    // sync_client();
 }
 
 /* Envia o userId para o servidor e aguarda confirmação de log in */

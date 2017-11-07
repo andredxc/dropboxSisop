@@ -53,6 +53,8 @@ class DropboxServer{
         bool assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId);
         bool logInClient(int socket, char* userId);
         void logOutClient(int socket, char* userId);
+        int countUserFiles(char* userId);
+        int findUserIndex(const char* userId);
 
 };
 
