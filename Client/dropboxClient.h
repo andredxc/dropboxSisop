@@ -26,7 +26,7 @@ class DropboxClient{
         int connect_server(char* host, int port);
         void sync_client();
         void send_file(char* filePath);
-        void get_file(char* file);
+        void get_file(char* filePath, char *destination);
         void delete_file(char* file);
         void close_connection();
     //Funções extras

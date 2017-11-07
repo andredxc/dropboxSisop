@@ -192,20 +192,25 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
 void DropboxServer::send_file(int socket, char* userId, char* filePath){
 
     char fserverPath[512];
-    int fileSize;
+    int fileSize, iterations, sizeSent, sizeToSend;
+    char buffer[CP_MAX_MSG_SIZE], mTime[CP_MAX_MSG_SIZE];
     FILE *file;
-    fprintf(stderr, "Arquivo a ser baixado1: %s \n", filePath); // TODO: DELETAR ISSO DEPOIS DE PRONTO
 
     snprintf(fserverPath, sizeof(fserverPath), "%ssync_dir_%s/%s", SERVER_SYNC_DIR_PATH, userId, basename(filePath));
 
-    fprintf(stderr, "Arquivo a ser baixado: %s \n", fserverPath); // TODO: DELETAR ISSO DEPOIS DE PRONTO
+    fprintf(stderr, "Downloading file: %s \n", fserverPath);
 
     // Abre o arquivo para leitura
     if(!(file = fopen(fserverPath, "r"))){
         // Erro na abertura
-        fprintf(stderr, "DropboxClient - Error opening file \'%s\'\n", filePath);
+        fprintf(stderr, "DropboxServer - Error opening file \'%s\'\n", filePath);
+    }
+    // Envia confirmação da existência do arquivo
+    if(!sendInteger(socket, file != NULL)){
+        fprintf(stderr, "DropboxServer - Error confirming file existance\n");
         return;
     }
+    if(file == NULL) return;
 
     // Descobre o tamanho do arquivo
     fseek(file, 0, SEEK_END);
@@ -222,6 +227,42 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         fclose(file);
         return;
     }
+
+    // Começa o envio do arquivo
+    iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
+    sizeSent = 0;
+    for(int i = 0; i < iterations; i++){
+
+        fprintf(stderr, "DropboxServer - Sending file, iteration %d of %d\n", i+1, iterations);
+        sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
+        bzero(buffer, sizeof(buffer));
+        fread((void*) buffer, sizeToSend, 1, file);
+        if(write(socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxServer - Error sending part %d of file\n", i);
+        }
+        if(!receiveExpectedInt(socket, CP_FILE_PART_RECEIVED)){
+            fprintf(stderr, "DropboxServer - Error receving ack for part %d of %d\n", i+1, iterations);
+        }
+        sizeSent += sizeToSend;
+    }
+    fclose(file);
+
+    // Envia mesagem informando fim do arquivo
+    if(!sendInteger(socket, CP_SEND_FILE_COMPLETE)){
+        fprintf(stderr, "DropboxServer - Error sending file send completion message\n");
+        return;
+    }
+    // Recebe ack
+    if(!receiveExpectedInt(socket, CP_SEND_FILE_COMPLETE_ACK)){
+        fprintf(stderr, "DropboxServer - Error receiving ack for file completion\n");
+        return;
+    }
+
+    // Exibe mensagem ao servidor
+    if(sizeSent == fileSize){
+        fprintf(stderr, "DropboxServer - File sent \'%s\' successfully\n", basename(filePath));
+    }
+
 }
 //--------------------------------------------------FUNÇÕES EXTRAS
 

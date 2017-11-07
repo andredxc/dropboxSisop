@@ -12,7 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "dropboxClient.h"
-
+#include <unistd.h>
 
 int main(int argc, char** argv){
 
@@ -20,6 +20,7 @@ int main(int argc, char** argv){
     char comand[MAXCOMANDSIZE];
     int isRunning = 1;
     DropboxClient client;
+    char buffer[512];
 
     // Verifica os argumentos passados (retorna formato adequado e interrompe execução em caso de erro)
     if(argc < 4){
@@ -59,7 +60,7 @@ int main(int argc, char** argv){
                 break;
             case COM_DOWNLOAD:
                 strncpy(comand, &comand[9], sizeof(comand));
-                client.get_file(comand);
+                client.get_file(comand, getcwd(buffer, sizeof(buffer)));
                 break;
             case COM_LIST_SERVER:
                 fprintf(stderr, "COM_LIST_SERVER\n");

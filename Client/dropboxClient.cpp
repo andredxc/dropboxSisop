@@ -349,11 +349,17 @@ void DropboxClient::send_file(char* filePath){
 }
 
 /**/
-void DropboxClient::get_file(char* filePath){
+void DropboxClient::get_file(char* filePath, char *destination){
 
     FILE *file = NULL;
-    int fileSize;
-    char buffer[CP_MAX_MSG_SIZE];
+    int fileSize, file_existance, sizeReceived, iterations, sizeToReceive;
+    char buffer[CP_MAX_MSG_SIZE], newfilePath[CP_MAX_MSG_SIZE];
+    FILE *newFile;
+
+    snprintf(newfilePath, sizeof(newfilePath), "%s/%s", destination, filePath);
+    fprintf(stderr, "DropboxClient - Downloading \'%s\' to \'%s\'\n", filePath, destination);
+
+    printf(newfilePath, sizeof(newfilePath), "%s/%s", destination, filePath);
 
     // Verifica o tamanho do nome do arquivo
     if(strlen(basename(filePath)) > CP_MAX_MSG_SIZE-1){
@@ -377,6 +383,27 @@ void DropboxClient::get_file(char* filePath){
         fclose(file);
         return;
     }
+    // Recebe confirmação da existência do arquivo
+    bzero(buffer, sizeof(buffer));
+    if(read(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error confirming file existance\n");
+        return;
+    }
+    if(!sendInteger(_socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
+        fprintf(stderr, "DropboxClient - Error sending file existance ack\n");
+        return;
+    }
+    file_existance = atoi(buffer);
+    if(file_existance == 0){
+        fprintf(stderr, "DropboxClient - file does not exist\n");
+        return;
+    }
+
+    // Cria o arquivo
+    if(!(newFile = fopen(newfilePath, "w"))){
+        fprintf(stderr, "Socket %d - Error creating file \'%s\'\n", socket, destination);
+        return;
+    }
 
     // Recebe o tamanho do arquivo
     bzero(buffer, sizeof(buffer));
@@ -384,15 +411,42 @@ void DropboxClient::get_file(char* filePath){
         fprintf(stderr, "DropboxClient - Error receiving file size\n");
         return;
     }
-    fileSize = atoi(buffer);
     if(!sendInteger(_socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
         fprintf(stderr, "DropboxClient - Error sending file size ack\n");
         return;
     }
-
     fileSize = atoi(buffer);
-    fprintf(stderr, "Tamanho do arquivo: %d\n", fileSize);
+    // Recebe o arquivo
+    sizeReceived = 0;
+    iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
+    for(int i = 0; i < iterations; i++){
 
+        fprintf(stderr, "Socket %d - Receiving file, iteration %d of %d\n", _socket, i+1, iterations);
+        sizeToReceive = (fileSize - sizeReceived) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeReceived);
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "Socket %d - Error receiving part of file %d\n", _socket, i+1);
+        }
+        fwrite((void*) buffer, sizeToReceive, 1, newFile);
+        if(!sendInteger(_socket, CP_FILE_PART_RECEIVED)){
+            fprintf(stderr, "Socket %d - Error sending ack for part %d of %d\n", _socket, i+1, iterations);
+        }
+        sizeReceived += sizeToReceive;
+    }
+    fclose(newFile);
+    //Recebe confirmação de término do envio do arquivo
+    if(!receiveExpectedInt(_socket, CP_SEND_FILE_COMPLETE)){
+        fprintf(stderr, "Socket %d - Error receiving CP_SEND_FILE_COMPLETE\n", _socket);
+        return;
+    }
+    if(!sendInteger(_socket, CP_SEND_FILE_COMPLETE_ACK)){
+        fprintf(stderr, "Socket %d - Error sending CP_SEND_FILE_COMPLETE_ACK\n", _socket);
+        return;
+    }
+    // Exibe mensagem ao usuário
+    if(sizeReceived == fileSize){
+        fprintf(stderr, "DropboxClient - File sent \'%s\' successfully\n", basename(filePath));
+    }
 }
 
 /**/
