@@ -240,7 +240,7 @@ void DropboxServer::handleConnection(int* socket){
 void* DropboxServer::handleConnectionThread(void* args){
 
     struct classAndSocket arg = *(struct classAndSocket*)args;
-    int socket;
+    int socket, returnVal;
     bool isRunning = true;
     char receiveBuffer[CP_MAX_MSG_SIZE], userId[MAXNAME];
 
@@ -276,13 +276,19 @@ void* DropboxServer::handleConnectionThread(void* args){
     while(isRunning){
         // Recebe comando do cliente
         bzero(receiveBuffer, sizeof(receiveBuffer));
-        if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+        returnVal = read(socket, receiveBuffer, sizeof(receiveBuffer));
+        if(returnVal < 0){
             fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
+        }
+        else if(returnVal == 0){
+            server->logOutClient(socket, userId);
+            server->closeConnection(socket);
         }
         else{
             switch(atoi(receiveBuffer)){
                 case CP_CLIENT_END_CONNECTION:
                     fprintf(stderr, "Socket %d - CP_CLIENT_END_CONNECTION received\n", socket);
+                    server->logOutClient(socket, userId);
                     server->closeConnection(socket);
                     break;
                 case CP_CLIENT_SEND_FILE:

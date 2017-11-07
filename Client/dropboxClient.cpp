@@ -220,15 +220,20 @@ void DropboxClient::sync_client(){
     }
 }
 
-/* mostra lista de arquivos e informações do cliente */
+/* Mostra a lista de arquivos e informações do cliente */
 void DropboxClient::list_client(){
 
     DIR *localSyncDir;
     struct dirent *entry;
+    struct stat statBuff;
     char syncDirPath[200], curFilePath[200];
-    struct file_info *info = new struct file_info;
+    char curATime[50], curMTime[50], curCTime[50];
+    int curFileSize;
 
     snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s/", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
+    fprintf(stderr, "FILES STORED IN THE LOCAL SYNC_DIR (%s): \n\n", syncDirPath);
+    fprintf(stderr, "%30s    %8s    %30s     %30s     %30s\n", "Name", "Size (B)", "Creation Time", "Modification Time", "Access Time");
+
     if((localSyncDir = opendir(syncDirPath)) != NULL){
         while((entry = readdir(localSyncDir)) != NULL){
             // Para cada arquivo no diretório
@@ -237,10 +242,14 @@ void DropboxClient::list_client(){
             }
             // Para todos os arquivos úteis
             snprintf(curFilePath, sizeof(curFilePath), "%s%s", syncDirPath, entry->d_name);
-            // Monta estrutura file_info, para depois printar
-            getFileInfo(curFilePath, info);
-            // printa informação do arquivo
-            printFileInfo(*info);
+
+            stat(curFilePath, &statBuff);
+            strftime(curMTime, sizeof(curMTime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_mtime));
+            strftime(curATime, sizeof(curATime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_atime));
+            strftime(curCTime, sizeof(curCTime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_ctime));
+            getFileSize(curFilePath, &curFileSize);
+
+            fprintf(stderr, "%30s     %6d     %30s     %30s     %30s\n", entry->d_name, curFileSize, curCTime, curMTime, curATime);
         }
         fprintf(stderr, "FIM DOS ARQUIVOS\n");
     }
@@ -545,7 +554,6 @@ void* DropboxClient::fileWatcher(void* clientClass){
             }
         }
     }
-
     inotify_rm_watch(fileDesc, watchDesc);
     close(fileDesc);
 

@@ -152,6 +152,5 @@ time_t getMTimeValue(const char* filePath){
     if(stat(filePath, &statBuff)){
         return 0;
     }
-
     return statBuff.st_mtime;
 }
