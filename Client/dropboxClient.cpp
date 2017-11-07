@@ -62,7 +62,7 @@ int DropboxClient::connect_server(char* host, int port){
 void DropboxClient::sync_client(){
 
     char buffer[CP_MAX_MSG_SIZE];
-    int numberOfFiles, i;
+    int numberOfFiles, i, maxAttempts = 20, currentAttempt = 0;
     char curFileName[CP_MAX_MSG_SIZE], curFilePath[512];
     time_t serverFileMTime, localFileMTime;
     double diffTimeValue;
@@ -107,7 +107,7 @@ void DropboxClient::sync_client(){
             fprintf(stderr, "%s - Download file %s\n", __FUNCTION__, curFilePath);
             if(!sendInteger(_socket, CP_SYNC_FILE_NOT_FOUND)){
                 fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_FILE_NOT_FOUND\n");
-                //TODO
+                
             }
         }
         else{
@@ -119,27 +119,51 @@ void DropboxClient::sync_client(){
             if(diffTimeValue < 0){
                 //Arquivo mais recente está no servidor
                 fprintf(stderr, "%s - Download '%s' from server\n", __FUNCTION__, curFileName);
-                if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
-                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
-                    //TODO
-                }
-            }
+		while(currentAttempt!= maxAttempts && done == 0) {
+                	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
+                    		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
+				currentAttempt++;
+                	}
+			done = 1;
+		}
+		if(done == 0){
+			close_conection();
+			close(_socket);
+			return;
+		}
+	    }
             else if(diffTimeValue > 0){
                 //Arquivo mais recente está no cliente
                 fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
-                if(!sendInteger(_socket, CP_SYNC_UPLOAD_FILE)){
-                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_UPLOAD_FILE\n");
-                    //TODO
-                }
-            }
+                while(currentAttempt!= maxAttempts && done == 0) {
+                	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
+                    		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
+				currentAttempt++;
+                	}
+			done = 1;
+		}
+		if(done == 0){
+			close_conection();
+			close(_socket);
+			return;
+		}
+	    }
             else{
                 //O arquivo já está atualizado
                 fprintf(stderr, "%s - File '%s' is up to date\n", __FUNCTION__, curFileName);
-                if(!sendInteger(_socket, CP_SYNC_FILE_OK)){
-                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_UPLOAD_FILE\n");
-                    //TODO
-                }
-            }
+                while(currentAttempt!= maxAttempts && done == 0) {
+                	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
+                    		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
+				currentAttempt++;
+                	}
+			done = 1;
+		}
+		if(done == 0){
+			close_conection();
+			close(_socket);
+			return;
+		}
+	    }
         }
     }
 
@@ -508,8 +532,9 @@ void DropboxClient::getSyncDirComand(){
     if(access(CLIENT_SYNC_DIR_PATH, F_OK) == -1){
         if((errorCode = mkdir(CLIENT_SYNC_DIR_PATH, S_IRWXU)) != 0){
             fprintf(stderr, "DropboxClient - Error %d creating sync dir %s\n", errorCode, CLIENT_SYNC_DIR_PATH);
-            //TODO: Terminar conexão ou algo parecido
             close_connection();
+	    close(_socket);
+	    fprintf(stderr, "Connection Close, Socket Close\n");
             return;
         }
     }
@@ -518,9 +543,10 @@ void DropboxClient::getSyncDirComand(){
         fprintf(stderr, "DropboxClient - Directory \'%s\' is being created...\n", syncDirPath);
         if((errorCode = mkdir(syncDirPath, S_IRWXU)) != 0){
             fprintf(stderr, "DropboxClient - Error %d creating directory %s\n", errorCode, syncDirPath);
-            //TODO: Terminar conexão ou algo parecido
-            return;
             close_connection();
+	    close(_socket);
+	    fprintf(stderr, "Connection Close, Socket Close\n");
+            return;
         }
         // sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
         //dumpServerFiles();
