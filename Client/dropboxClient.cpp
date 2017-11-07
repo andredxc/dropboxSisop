@@ -218,19 +218,22 @@ void DropboxClient::sync_client(){
         }
         closedir(localSyncDir);
     }
-
-
 }
 
-/* mostra lista de arquivos e informações do cliente */
+/* Mostra a lista de arquivos e informações do cliente */
 void DropboxClient::list_client(){
 
     DIR *localSyncDir;
     struct dirent *entry;
+    struct stat statBuff;
     char syncDirPath[200], curFilePath[200];
-    struct file_info *info = new struct file_info;
+    char curATime[50], curMTime[50], curCTime[50];
+    int curFileSize;
 
     snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s/", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
+    fprintf(stderr, "FILES STORED IN THE LOCAL SYNC_DIR (%s): \n\n", syncDirPath);
+    fprintf(stderr, "%30s    %8s    %30s     %30s     %30s\n", "Name", "Size (B)", "Creation Time", "Modification Time", "Access Time");
+
     if((localSyncDir = opendir(syncDirPath)) != NULL){
         while((entry = readdir(localSyncDir)) != NULL){
             // Para cada arquivo no diretório
@@ -239,10 +242,14 @@ void DropboxClient::list_client(){
             }
             // Para todos os arquivos úteis
             snprintf(curFilePath, sizeof(curFilePath), "%s%s", syncDirPath, entry->d_name);
-            // Monta estrutura file_info, para depois printar
-            getFileInfo(curFilePath, info);
-            // printa informação do arquivo
-            printFileInfo(*info);
+
+            stat(curFilePath, &statBuff);
+            strftime(curMTime, sizeof(curMTime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_mtime));
+            strftime(curATime, sizeof(curATime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_atime));
+            strftime(curCTime, sizeof(curCTime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_ctime));
+            getFileSize(curFilePath, &curFileSize);
+
+            fprintf(stderr, "%30s     %6d     %30s     %30s     %30s\n", entry->d_name, curFileSize, curCTime, curMTime, curATime);
         }
         fprintf(stderr, "FIM DOS ARQUIVOS\n");
     }
@@ -447,10 +454,33 @@ void DropboxClient::get_file(char* filePath, char *destination){
     if(sizeReceived == fileSize){
         fprintf(stderr, "DropboxClient - File sent \'%s\' successfully\n", basename(filePath));
     }
+    fprintf(stderr, "Tamanho do arquivo: %d\n", fileSize);
 }
 
-/**/
-void DropboxClient::delete_file(char* file){}
+/* Delete algum arquivo do servidor */
+void DropboxClient::delete_file(char* file){
+
+    char buffer[CP_MAX_MSG_SIZE];
+
+    //Envia o comando ao servidor
+    if(!sendInteger(_socket, CP_CLIENT_DELETE_FILE)){
+        fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_DELETE_FILE\n");
+        return;
+    }
+    //Espera o ack
+    if(!receiveExpectedInt(_socket, CP_CLIENT_DELETE_FILE_ACK)){
+        fprintf(stderr, "DropboxClient - Error receiving CP_CLIENT_DELETE_FILE_ACK\n");
+        return;
+    }
+
+    //Envia o nome do arquivo
+    bzero(buffer, sizeof(buffer));
+    strncpy(buffer, basename(file), sizeof(buffer));
+    if(write(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error sending file name\n");
+        return;
+    }
+}
 
 /* Termina a conexão */
 void DropboxClient::close_connection(){
@@ -522,33 +552,16 @@ int DropboxClient::readComand(char* comandBuffer, int bufferSize){
     }
 }
 
-/*Envia o comando ao servidor*/
-bool DropboxClient::sendComand(char* comand, int length){
-
-	char buffer[CP_MAX_MSG_SIZE];
-
-	bzero(buffer, sizeof(buffer));
-	strncpy(buffer, comand, length);
-
-    if(write(_socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "DropboxClient - Error sending comand \'%s\' to server\n", comand);
-        return false;
-    }
-    else{
-        fprintf(stderr, "DropboxClient - Comand sent to server on socket %d!\n", _socket);
-        return true;
-    }
-}
-
 /*Verifica se hove alterações dentro do diretório em path*/
-void* DropboxClient::fileWatcher(void* path){
+void* DropboxClient::fileWatcher(void* clientClass){
 
     int fileDesc, watchDesc, length, isRunning = 1;
     struct inotify_event *event;
-    char *eventPtr, *dirPath, buffer[4098];
+    char *eventPtr, syncDirPath[256], buffer[4098], curFilePath[256];
+    DropboxClient* client = (DropboxClient*) clientClass;
 
-    dirPath = (char*) path;
-    fprintf(stderr, "DropboxClient - dirPath = %s\n", dirPath);
+    snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, client->getUserId());
+    fprintf(stderr, "DropboxClient - syncDirPath = %s\n", syncDirPath);
 
     fileDesc = inotify_init();
 
@@ -557,10 +570,10 @@ void* DropboxClient::fileWatcher(void* path){
         return NULL;
     }
 
-    watchDesc = inotify_add_watch(fileDesc, ".", IN_MODIFY | IN_CREATE | IN_DELETE);
+    watchDesc = inotify_add_watch(fileDesc, syncDirPath, IN_MODIFY | IN_CREATE | IN_DELETE);
 
     if(watchDesc < 0){
-        fprintf(stderr, "DropboxClient - Error adding watch to \'%s\'\n", dirPath);
+        fprintf(stderr, "DropboxClient - Error adding watch to \'%s\'\n", syncDirPath);
         isRunning = 0;
     }
 
@@ -570,7 +583,7 @@ void* DropboxClient::fileWatcher(void* path){
 
         if(length < 0){
             //Erro na leitura
-            fprintf(stderr, "DropboxClient - Error watching directory \'%s\'\n", dirPath);
+            fprintf(stderr, "DropboxClient - Error watching directory \'%s\'\n", syncDirPath);
             isRunning = 0;
         }
         else{
@@ -581,17 +594,22 @@ void* DropboxClient::fileWatcher(void* path){
 
                 if(event->mask & IN_MODIFY){
                     fprintf(stderr, "DropboxClient - File \'%s\' was modified\n", event->name);
+                    snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
+                    client->send_file(curFilePath);
                 }
                 else if(event->mask & IN_CREATE){
                     fprintf(stderr, "DropboxClient - File \'%s\' was created\n", event->name);
+                    snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
+                    client->send_file(curFilePath);
                 }
                 else if(event->mask & IN_DELETE){
                     fprintf(stderr, "DropboxClient - File \'%s\' was deleted\n", event->name);
+                    snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
+                    client->delete_file(curFilePath);
                 }
             }
         }
     }
-
     inotify_rm_watch(fileDesc, watchDesc);
     close(fileDesc);
 
@@ -625,6 +643,7 @@ void DropboxClient::getSyncDirComand(){
 	    fprintf(stderr, "Connection Close, Socket Close\n");
             return;
         }
+        sync_client();
         // sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
         //dumpServerFiles();
     }
@@ -632,6 +651,37 @@ void DropboxClient::getSyncDirComand(){
         // Diretório encontrado
         // sendInteger(_socket, CP_SYNC_DIR_FOUND);
         sync_client();
+    }
+}
+
+/* Executa as ações referentes ao comand list_server */
+void DropboxClient::listServerComand(){
+
+    std::vector<FILE> fileList;
+    char buffer[CP_MAX_MSG_SIZE];
+    int numberOfFiles, i;
+
+    //Manda solicitação para o servidor
+    if(!sendInteger(_socket, CP_LIST_SERVER)){
+        fprintf(stderr, "DropboxClient - Error sending CP_LIST_SERVER\n");
+        return;
+    }
+    //Recebe ack
+    if(!receiveExpectedInt(_socket, CP_LIST_SERVER_ACK)){
+        fprintf(stderr, "DropboxClient - Error receiving CP_LIST_SERVER_ACK\n");
+        return;
+    }
+
+    //Recebe número de arquivos
+    bzero(buffer, sizeof(buffer));
+    if(read(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error receiving number of files\n");
+        return;
+    }
+    numberOfFiles = atoi(buffer);
+
+    //Coleta os dados de FILE para todos os arquivos
+    for(i = 0; i < numberOfFiles; i++){
     }
 }
 
@@ -673,4 +723,5 @@ bool DropboxClient::sendUserId(char* userId){
 
 int DropboxClient::getSocket(){ return _socket; }
 bool DropboxClient::getIsConnected(){ return _isConnected; }
+char* DropboxClient::getUserId(){ return _userId; }
 void DropboxClient::setUserId(char* userId){ strncpy(_userId, userId, sizeof(_userId)); }

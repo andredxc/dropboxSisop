@@ -281,7 +281,7 @@ void DropboxServer::handleConnection(int* socket){
 void* DropboxServer::handleConnectionThread(void* args){
 
     struct classAndSocket arg = *(struct classAndSocket*)args;
-    int socket;
+    int socket, returnVal;
     bool isRunning = true;
     char receiveBuffer[CP_MAX_MSG_SIZE], userId[MAXNAME];
 
@@ -317,13 +317,19 @@ void* DropboxServer::handleConnectionThread(void* args){
     while(isRunning){
         // Recebe comando do cliente
         bzero(receiveBuffer, sizeof(receiveBuffer));
-        if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+        returnVal = read(socket, receiveBuffer, sizeof(receiveBuffer));
+        if(returnVal < 0){
             fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
+        }
+        else if(returnVal == 0){
+            server->logOutClient(socket, userId);
+            server->closeConnection(socket);
         }
         else{
             switch(atoi(receiveBuffer)){
                 case CP_CLIENT_END_CONNECTION:
                     fprintf(stderr, "Socket %d - CP_CLIENT_END_CONNECTION received\n", socket);
+                    server->logOutClient(socket, userId);
                     server->closeConnection(socket);
                     break;
                 case CP_CLIENT_SEND_FILE:
@@ -358,6 +364,9 @@ void* DropboxServer::handleConnectionThread(void* args){
                     break;
                 case CP_SYNC_CLIENT:
                     server->sync_server(socket, userId);
+                    break;
+                case CP_CLIENT_DELETE_FILE:
+                    server->deleteFile(socket, userId);
                     break;
                 default:
                     fprintf(stderr, "Socket %d - Unrecognized message %d\n", socket, atoi(receiveBuffer));
@@ -606,6 +615,73 @@ int DropboxServer::findUserFile(char* userId, char* fileName){
     }
     //Não encontrou o arquivo
     return -1;
+}
+
+/* Deleta um arquivo do servidor */
+void DropboxServer::deleteFile(int socket, char* userId){
+
+    char buffer[CP_MAX_MSG_SIZE], filePath[256];
+    int userIndex, fileIndex, i;
+
+    //Envia ack
+    if(!sendInteger(socket, CP_CLIENT_DELETE_FILE_ACK)){
+        fprintf(stderr, "Socket %d - Error sending CP_CLIENT_DELETE_FILE_ACK\n", socket);
+        return;
+    }
+
+    //Recebe o nome do arquivo a ser deletado
+    bzero(buffer, sizeof(buffer));
+    if(read(socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
+        return;
+    }
+    snprintf(filePath, sizeof(filePath), "%ssync_dir_%s/%s", SERVER_SYNC_DIR_PATH, userId, buffer);
+
+    //Remove o arquivo
+    if(remove(filePath) < 0){
+        fprintf(stderr, "Socket %d - Errror deleting file \'%s\'\n", socket, filePath);
+        return;
+    }
+
+    //Remove o arquivo das estruturas internas do servidor
+    //A consistência deve ser mantida, isto é, não podem haver registros vazios no meio do array
+    userIndex = findUserIndex(userId);
+    fileIndex = findUserFile(userId, basename(filePath));
+
+    if(fileIndex < 0){
+        fprintf(stderr, "Socket %d - Internal error, file \'%s\' not found\n", socket, basename(filePath));
+        return;
+    }
+
+
+    i = 0;
+    while(i < MAXFILES){
+        if(strlen(_clients.at(userIndex).file_info[i].name) == 0){
+            //Encontrou o primeiro elemento vazio
+            if(i == 0){
+                //O array está vazio
+                fprintf(stderr, "Socket %d - Internal error, array is empty\n", socket);
+            }
+            else if(i-1 == 0){
+                //O array contém apenas um elemento
+                bzero(_clients.at(userIndex).file_info[i-1].name, sizeof(_clients.at(userIndex).file_info[i-1].name));
+            }
+            else if(fileIndex < i-1){
+                //FileIndex se encontra antes do último elemento
+                memcpy((void*) &_clients.at(userIndex).file_info[fileIndex], (void*) &_clients.at(userIndex).file_info[i-1], sizeof(FILE_INFO));
+                bzero(_clients.at(userIndex).file_info[i-1].name, sizeof(_clients.at(userIndex).file_info[i-1].name));
+            }
+            else if(fileIndex == i-1){
+                //FileIndex é o último elemento do array
+                bzero(_clients.at(userIndex).file_info[i-1].name, sizeof(_clients.at(userIndex).file_info[i-1].name));
+            }
+            printClient(_clients.at(userIndex), true);
+            break;
+        }
+        i++;
+    }
+
+    fprintf(stderr, "Socket %d - File \'%s\' was deleted\n", socket, basename(filePath));
 }
 
 /*Faz liste(), accept() e retorna o socket de comunicação*/

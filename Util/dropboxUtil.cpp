@@ -102,12 +102,13 @@ void getFileInfo(const char* filePath, struct file_info *info){
 /* Imprime a struct file_info na tela */
 void printFileInfo(FILE_INFO file){
 
-    fprintf(stderr, "    Printing file --------\n");
-    fprintf(stderr, "    Name: %s\n", file.name);
-    fprintf(stderr, "    Extension: %s\n", file.extension);
-    fprintf(stderr, "    M time: %s\n", file.last_modified);
-    fprintf(stderr, "    Size: %d\n", file.size);
-    fprintf(stderr, "\n");
+    fprintf(stderr, "%30s     %5s     %20s     %5d\n",file.name, file.extension, file.last_modified, file.size);
+    // fprintf(stderr, "    Printing file --------\n");
+    // fprintf(stderr, "    Name: %s\n", file.name);
+    // fprintf(stderr, "    Extension: %s\n", file.extension);
+    // fprintf(stderr, "    M time: %s\n", file.last_modified);
+    // fprintf(stderr, "    Size: %d\n", file.size);
+
 }
 
 /* Imprime a struct client na tela */
@@ -151,6 +152,5 @@ time_t getMTimeValue(const char* filePath){
     if(stat(filePath, &statBuff)){
         return 0;
     }
-
     return statBuff.st_mtime;
 }
