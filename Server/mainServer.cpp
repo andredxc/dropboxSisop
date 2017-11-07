@@ -9,11 +9,8 @@
 
 int main(){
 
-    int comunicationSocket, isRunning=1;
-    struct sockaddr_in clientAddress;
-    socklen_t clientLength;
-    char comunicationBuffer[256];
     DropboxServer server;
+    int comunicationSocket, isRunning=1;
 
     //Inicialização do servidor
     if(server.initialize() < 0){

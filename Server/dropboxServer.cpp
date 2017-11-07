@@ -5,8 +5,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include "dropboxServer.h"
 #include "../Util/dropboxUtil.h"
 
@@ -161,8 +163,8 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
 /*Envia um arquivo para o cliente*/
 void DropboxServer::send_file(int socket, char* userId, char* filePath){
 
-    char buffer[CP_MAX_MSG_SIZE], fserverPath[512];
-    int fileSize, iterations, sizeReceived, sizeToReceive, i;
+    char fserverPath[512];
+    int fileSize;
     FILE *file;
     fprintf(stderr, "Arquivo a ser baixado1: %s \n", filePath); // TODO: DELETAR ISSO DEPOIS DE PRONTO
 
@@ -242,28 +244,6 @@ void* DropboxServer::handleConnectionThread(void* args){
         free(args);
         return NULL;
     }
-    // Espera pela mensagem informando se o cliente encontrou o sync_dir
-    // fprintf(stderr, "Socket %d - Waiting for sync dir message\n", socket);
-    // bzero(receiveBuffer, sizeof(receiveBuffer));
-    // if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
-    //     fprintf(stderr, "Socket %d - Error receiving sync_dir information\n", socket);
-    //     server->logOutClient(socket, userId);
-    //     server->closeConnection(socket);
-    //     free(args);
-    //     return NULL;
-    // }
-    // if(atoi(receiveBuffer) == CP_SYNC_DIR_FOUND){
-    // }
-    // else if(atoi(receiveBuffer) == CP_SYNC_DIR_NOT_FOUND){
-    // }
-    // else{
-    //     fprintf(stderr, "Socket %d - Error didn't receive sync dir message\n", socket);
-    //     server->logOutClient(socket, userId);
-    //     server->closeConnection(socket);
-    //     free(args);
-    //     return NULL;
-    // }
-    // server->sync_server(socket, userId);
     // Fica no aguardo de mensagens do cliente
     while(isRunning){
         // Recebe comando do cliente
@@ -290,6 +270,21 @@ void* DropboxServer::handleConnectionThread(void* args){
                     }
                     else{
                         server->receive_file(socket, userId, receiveBuffer);
+                    }
+                    break;
+                case CP_CLIENT_GET_FILE:
+                    fprintf(stderr, "Socket %d - CP_CLIENT_GET_FILE received\n", socket);
+                    if(!sendInteger(socket, CP_CLIENT_GET_FILE_ACK)){
+                        fprintf(stderr, "Socket %d - Error sending CP_CLIENT_GET_FILE_ACK\n", socket);
+                        continue;
+                    }
+                    //Recebe o nome do arquivo
+                    bzero(receiveBuffer, sizeof(receiveBuffer));
+                    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                        fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
+                    }
+                    else{
+                        server->send_file(socket, userId, receiveBuffer);
                     }
                     break;
                 case CP_SYNC_CLIENT:
@@ -367,7 +362,7 @@ bool DropboxServer::logInClient(int socket, char* userId){
             _clients.at(i).devices[1] = socket;
         }
         else{
-            printf("Socket %d - Internal error, one position sould be empty\n", socket);
+            printf("Socket %d - Internal error, one position should be empty\n", socket);
             pthread_mutex_unlock(&_logInMutex);
             return false;
         }
@@ -447,6 +442,67 @@ int DropboxServer::findUserIndex(const char* userId){
     return -1;
 }
 
+/* Recupera as estruturas internas do servidor com base nos diretórios locais */
+void DropboxServer::recoverData(){
+
+    DIR *serverSyncDir, *curSyncDir;
+    struct dirent *entry, *curEntry;
+    char curSyncDirPath[512], curFilePath[512];
+    CLIENT clientBuffer;
+    int i, fileCounter;
+
+    if((serverSyncDir = opendir(SERVER_SYNC_DIR_PATH)) != NULL){
+        //Abre o diretório em que estão todos os sync_dir_
+            while((entry = readdir(serverSyncDir)) != NULL){
+                // Para cada arquivo no diretório
+                if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
+                    //Ignora os arquivos . e ..
+                    continue;
+                }
+
+                // Para todos os arquivos úteis
+                snprintf(curSyncDirPath, sizeof(curSyncDirPath), "%s%s", SERVER_SYNC_DIR_PATH, entry->d_name);
+                if((curSyncDir = opendir(curSyncDirPath)) != NULL){
+                    //Entrou em algum sync_dir
+                    if(sscanf(entry->d_name, "sync_dir_%s", clientBuffer.userId) > 0){
+                        //O diretório encontrado é um sync_dir
+                        //Inicializa as variáveis
+                        clientBuffer.devices[0] = -1;
+                        clientBuffer.devices[1] = -1;
+                        clientBuffer.logged_in = 0;
+                        for(i = 0; i < MAXFILES; i++){
+                            bzero(clientBuffer.file_info[i].name, sizeof(clientBuffer.file_info[i].name));
+                        }
+
+                        //Recolhe dados sobre os arquivos
+                        fileCounter = 0;
+                        while((curEntry = readdir(curSyncDir)) != NULL){
+                            if(strcmp(curEntry->d_name, ".") == 0 || strcmp(curEntry->d_name, "..") == 0){
+                                //Ignora os arquivos . e ..
+                                continue;
+                            }
+
+                            //Salva os dados dos arquivos úteis
+                            snprintf(curFilePath, sizeof(curFilePath), "%s/%s", curSyncDirPath, curEntry->d_name);
+                            getFileInfo(curFilePath, &clientBuffer.file_info[fileCounter]);
+                            fileCounter++;
+                            // strncpy(clientBuffer.file_info[fileCounter].name, curEntry->d_name, sizeof(clientBuffer.file_info[fileCounter].name));
+                            // strncpy(clientBuffer.file_info[fileCounter].extension, getFileExtension(curEntry->d_name), sizeof(clientBuffer.file_info[fileCounter].extension));
+                            // getMTime(curFilePath, clientBuffer.file_info[fileCounter].last_modified, sizeof(clientBuffer.file_info[fileCounter].last_modified));
+                            // getFileSize(curFilePath, &clientBuffer.file_info[fileCounter].size);
+                        }
+
+                        //Print para testes
+                        printClient(clientBuffer, true);
+                        _clients.push_back(clientBuffer);
+                    }
+                    closedir(curSyncDir);
+                }
+            }
+            closedir(serverSyncDir);
+        }
+}
+
 /*Faz liste(), accept() e retorna o socket de comunicação*/
 int DropboxServer::listenAndAccept(){
 
@@ -489,6 +545,9 @@ int DropboxServer::initialize(){
         return -1;
     }
 
+    //Recupera as estruturas do servidor
+    recoverData();
+
     return _serverSocket;
 }
 
@@ -498,6 +557,7 @@ void DropboxServer::closeConnection(int socket){
 	printf("DropboxServer - Closing connection with socket %d\n", socket);
     //TODO: Deslogar o usuário
 	close(socket);
+    pthread_exit(NULL);
 }
 
 int DropboxServer::getSocket(){ return _serverSocket; }

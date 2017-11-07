@@ -8,8 +8,8 @@
 #include <sys/inotify.h>
 #include <pthread.h>
 #include <netdb.h>
-#include <arpa/inet.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <string>
 #include <time.h>
@@ -104,7 +104,7 @@ void DropboxClient::sync_client(){
         snprintf(curFilePath, sizeof(curFilePath), "%ssync_dir_%s/%s", CLIENT_SYNC_DIR_PATH, _userId, curFileName);
         if(access(curFilePath, F_OK) == -1){
             //Arquivo não encontrado, deve ser baixado do servidor
-            fprintf(stderr, "%s - Download file %s\n", __FUNCTION__, curFilePath);
+            fprintf(stderr, "%s - Download \'%s\' from server (reason: not found)\n", __FUNCTION__, curFileName);
             if(!sendInteger(_socket, CP_SYNC_FILE_NOT_FOUND)){
                 fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_FILE_NOT_FOUND\n");
                 
@@ -118,6 +118,7 @@ void DropboxClient::sync_client(){
 
             if(diffTimeValue < 0){
                 //Arquivo mais recente está no servidor
+<<<<<<< HEAD
                 fprintf(stderr, "%s - Download '%s' from server\n", __FUNCTION__, curFileName);
 		while(currentAttempt!= maxAttempts && done == 0) {
                 	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
@@ -132,6 +133,14 @@ void DropboxClient::sync_client(){
 			return;
 		}
 	    }
+=======
+                fprintf(stderr, "%s - Download '%s' from server (reason: outdated)\n", __FUNCTION__, curFileName);
+                if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
+                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
+                    //TODO
+                }
+            }
+>>>>>>> fac37cbe6bcf7d985dc1bc9a3f66c143ad02b977
             else if(diffTimeValue > 0){
                 //Arquivo mais recente está no cliente
                 fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
@@ -328,9 +337,9 @@ void DropboxClient::send_file(char* filePath){
 /**/
 void DropboxClient::get_file(char* filePath){
 
-    FILE *file;
-    int fileSize, i, iterations, sizeSent, sizeToSend;
-    char buffer[CP_MAX_MSG_SIZE], mTime[CP_MAX_MSG_SIZE];
+    FILE *file = NULL;
+    int fileSize;
+    char buffer[CP_MAX_MSG_SIZE];
 
     // Verifica o tamanho do nome do arquivo
     if(strlen(basename(filePath)) > CP_MAX_MSG_SIZE-1){
@@ -341,7 +350,7 @@ void DropboxClient::get_file(char* filePath){
     // Envia pedido de download de arquivo
     sendInteger(_socket, CP_CLIENT_GET_FILE);
     if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_ACK)){
-        fprintf(stderr, "DropboxServer - Error receiving confirmation from server\n");
+        fprintf(stderr, "DropboxClient - Error receiving confirmation from server\n");
         fclose(file);
         return;
     }
@@ -350,7 +359,7 @@ void DropboxClient::get_file(char* filePath){
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(filePath), sizeof(buffer));
     if(write(_socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "DropboxServer - Error sending filename \'%s\'\n", buffer);
+        fprintf(stderr, "DropboxClient - Error sending filename \'%s\'\n", buffer);
         fclose(file);
         return;
     }
@@ -358,12 +367,12 @@ void DropboxClient::get_file(char* filePath){
     // Recebe o tamanho do arquivo
     bzero(buffer, sizeof(buffer));
     if(read(_socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
+        fprintf(stderr, "DropboxClient - Error receiving file size\n");
         return;
     }
     fileSize = atoi(buffer);
     if(!sendInteger(_socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
-        fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
+        fprintf(stderr, "DropboxClient - Error sending file size ack\n");
         return;
     }
 
@@ -375,7 +384,7 @@ void DropboxClient::get_file(char* filePath){
 /**/
 void DropboxClient::delete_file(char* file){}
 
-/*Termina a conexão*/
+/* Termina a conexão */
 void DropboxClient::close_connection(){
 
     if(!sendInteger(_socket, CP_CLIENT_END_CONNECTION)){

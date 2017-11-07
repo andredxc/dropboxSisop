@@ -92,9 +92,9 @@ void getFileSize(const char* filePath, int* buffer){
 void getFileInfo(const char* filePath, struct file_info *info){
 
     // Monta estrutura file_info a partir do arquivo de endereço filePath
-    snprintf(info->name, sizeof(info->name), "%s", getFileName(filePath));
+    snprintf(info->name, sizeof(info->name), "%s", basename(filePath));
     snprintf(info->extension, sizeof(info->extension), "%s", getFileExtension(filePath));
-    getMTime(filePath, info->last_modified, MAXFILES);
+    getMTime(filePath, info->last_modified, sizeof(info->last_modified));
     getFileSize(filePath, &(info->size));
 
 }
