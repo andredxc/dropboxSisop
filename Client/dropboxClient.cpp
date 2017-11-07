@@ -118,8 +118,8 @@ void DropboxClient::sync_client(){
 
             if(diffTimeValue < 0){
                 //Arquivo mais recente está no servidor
-<<<<<<< HEAD
-                fprintf(stderr, "%s - Download '%s' from server\n", __FUNCTION__, curFileName);
+
+                fprintf(stderr, "%s - Download '%s' from server  (reason: outdated)\n", __FUNCTION__, curFileName);
 		while(currentAttempt!= maxAttempts && done == 0) {
                 	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
                     		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
@@ -133,48 +133,43 @@ void DropboxClient::sync_client(){
 			return;
 		}
 	    }
-=======
-                fprintf(stderr, "%s - Download '%s' from server (reason: outdated)\n", __FUNCTION__, curFileName);
-                if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
-                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
-                    //TODO
-                }
-            }
->>>>>>> fac37cbe6bcf7d985dc1bc9a3f66c143ad02b977
-            else if(diffTimeValue > 0){
-                //Arquivo mais recente está no cliente
-                fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
-                while(currentAttempt!= maxAttempts && done == 0) {
-                	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
-                    		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
-				currentAttempt++;
-                	}
-			done = 1;
-		}
-		if(done == 0){
-			close_conection();
-			close(_socket);
-			return;
-		}
-	    }
+
+
             else{
-                //O arquivo já está atualizado
-                fprintf(stderr, "%s - File '%s' is up to date\n", __FUNCTION__, curFileName);
-                while(currentAttempt!= maxAttempts && done == 0) {
+	       if(diffTimeValue > 0){
+                    //Arquivo mais recente está no cliente
+                    fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
+                    while(currentAttempt!= maxAttempts && done == 0) {
                 	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
                     		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
 				currentAttempt++;
                 	}
 			done = 1;
+		    }
+		    if(done == 0){
+			   close_conection();
+			   close(_socket);
+			   return;
 		}
-		if(done == 0){
+               else{
+                    //O arquivo já está atualizado
+                  fprintf(stderr, "%s - File '%s' is up to date\n", __FUNCTION__, curFileName);
+                  while(currentAttempt!= maxAttempts && done == 0) {
+                	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
+                    		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
+				currentAttempt++;
+                	}
+			done = 1;
+		  }
+		  if(done == 0){
 			close_conection();
 			close(_socket);
 			return;
-		}
-	    }
-        }
+		  }
+	      }
+         }
     }
+}
 
     //Verifica se há novos arquivos no cliente utilizando o vector serverFiles
 
