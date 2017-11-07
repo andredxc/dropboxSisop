@@ -302,7 +302,51 @@ void DropboxClient::send_file(char* filePath){
 }
 
 /**/
-void DropboxClient::get_file(char* file){}
+void DropboxClient::get_file(char* filePath){
+
+    FILE *file;
+    int fileSize, i, iterations, sizeSent, sizeToSend;
+    char buffer[CP_MAX_MSG_SIZE], mTime[CP_MAX_MSG_SIZE];
+
+    // Verifica o tamanho do nome do arquivo
+    if(strlen(basename(filePath)) > CP_MAX_MSG_SIZE-1){
+        fprintf(stderr, "DropboxClient - Name size limit exceded\n");
+        return;
+    }
+
+    // Envia pedido de download de arquivo
+    sendInteger(_socket, CP_CLIENT_GET_FILE);
+    if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_ACK)){
+        fprintf(stderr, "DropboxServer - Error receiving confirmation from server\n");
+        fclose(file);
+        return;
+    }
+
+    // Envia o nome do arquivo
+    bzero(buffer, sizeof(buffer));
+    strncpy(buffer, basename(filePath), sizeof(buffer));
+    if(write(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxServer - Error sending filename \'%s\'\n", buffer);
+        fclose(file);
+        return;
+    }
+
+    // Recebe o tamanho do arquivo
+    bzero(buffer, sizeof(buffer));
+    if(read(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
+        return;
+    }
+    fileSize = atoi(buffer);
+    if(!sendInteger(_socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
+        fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
+        return;
+    }
+
+    fileSize = atoi(buffer);
+    fprintf(stderr, "Tamanho do arquivo: %d\n", fileSize);
+
+}
 
 /**/
 void DropboxClient::delete_file(char* file){}
