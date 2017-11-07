@@ -56,6 +56,7 @@ class DropboxServer{
         int countUserFiles(char* userId);
         int findUserIndex(const char* userId);
         void recoverData();
+        int findUserFile(char* userId, char* fileName);
 
 };
 

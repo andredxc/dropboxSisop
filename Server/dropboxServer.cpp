@@ -84,10 +84,34 @@ void DropboxServer::sync_server(int socket, char* userId){
         }
 
         switch (atoi(buffer)) {
-            case CP_SYNC_FILE_OK: fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_OK\n", socket); break;
-            case CP_SYNC_UPLOAD_FILE: fprintf(stderr, "Socket %d - Received CP_SYNC_UPLOAD_FILE\n", socket); break;
-            case CP_SYNC_DOWNLOAD_FILE: fprintf(stderr, "Socket %d - Received CP_SYNC_DOWNLOAD_FILE\n", socket); break;
-            case CP_SYNC_FILE_NOT_FOUND: fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_NOT_FOUND\n", socket); break;
+            case CP_SYNC_FILE_OK:
+                //Arquivo está sincronizado
+                fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_OK\n", socket);
+                break;
+            case CP_CLIENT_SEND_FILE:
+                //Cliente vai fazer upload do arquivo
+                fprintf(stderr, "Socket %d - Received CP_CLIENT_SEND_FILE\n", socket);
+                if(!sendInteger(socket, CP_CLIENT_SEND_FILE_ACK)){
+                    fprintf(stderr, "Socket %d - Error sending CP_CLIENT_SEND_FILE_ACK\n", socket);
+                    continue;
+                }
+                //Espera pelo nome do arquivo
+                bzero(buffer, sizeof(buffer));
+                if(read(socket, buffer, sizeof(buffer)) < 0){
+                    fprintf(stderr, "Socket %d - Error receiving file name from client\n", socket);
+                }
+                else{
+                    receive_file(socket, userId, buffer);
+                }
+                break;
+            case CP_SYNC_DOWNLOAD_FILE:
+                //Arquivo deve ser baixado do servidor
+                fprintf(stderr, "Socket %d - Received CP_SYNC_DOWNLOAD_FILE\n", socket);
+                break;
+            case CP_SYNC_FILE_NOT_FOUND:
+                //Arquivo não se encontra no client
+                fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_NOT_FOUND\n", socket);
+                break;
             default: fprintf(stderr, "Socket %d - Unrecognized answer at sync_server\n", socket); break;
         }
     }
@@ -139,6 +163,7 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
         sizeReceived += sizeToReceive;
     }
     fclose(newFile);
+    //Recebe confirmação de término do envio do arquivo
     if(!receiveExpectedInt(socket, CP_SEND_FILE_COMPLETE)){
         fprintf(stderr, "Socket %d - Error receiving CP_SEND_FILE_COMPLETE\n", socket);
         return;
@@ -147,6 +172,8 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
         fprintf(stderr, "Socket %d - Error sending CP_SEND_FILE_COMPLETE_ACK\n", socket);
         return;
     }
+
+    //Recebe o M time do arquivo no cliente
     bzero(buffer, sizeof(buffer));
     if(read(socket, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving file's M time\n", socket);
@@ -158,6 +185,7 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
     if(!assignNewFile(file, buffer, fileSize, userId)){
         fprintf(stderr, "Socket %d - Error assigning new file \'%s\'\n", socket, file);
     }
+    fprintf(stderr, "Socket %d - File \'%s\' received successfully\n", socket, basename(file));
 }
 
 /*Envia um arquivo para o cliente*/
@@ -288,33 +316,47 @@ void* DropboxServer::handleConnectionThread(void* args){
 /*Atribui um novo arquivo a um usuário*/
 bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId){
 
-    uint i, j;
+    uint j;
     bool done = false;
+    int userIndex, fileIndex;
 
-    //Encontra a estrutura CLIENT corespondente a userId
-    for (i = 0; i < _clients.size(); i++){
-        if(strcmp(userId, _clients.at(i).userId) == 0){
-            //Encontrou o cliente correspontente
-            j = 0;
-            while(!done && j < MAXFILES){
-                //Encontra o primeiro espaço vazio em file_info[]
-                if(strlen(_clients.at(i).file_info[j].name) == 0){
-                    //Encontrou um espaço vazio
-                    strncpy(_clients.at(i).file_info[j].name, basename(fileName), sizeof(_clients.at(i).file_info[j].name));
-                    strncpy(_clients.at(i).file_info[j].extension, getFileExtension(basename(fileName)),
-                            sizeof(_clients.at(i).file_info[j].extension));
-                    strncpy(_clients.at(i).file_info[j].last_modified, fileMTime,
-                            sizeof(_clients.at(i).file_info[j].last_modified));
-                    _clients.at(i).file_info[j].size = fileSize;
-                    done = true;
-                    printClient(_clients.at(i), true);
-                    return true;
-                }
-                j++;
+    userIndex = findUserIndex(userId);
+    fileIndex = findUserFile(userId, fileName);
+
+    if(userIndex < 0){
+        return false;
+    }
+
+    if(fileIndex < 0){
+        //Arquivo novo
+        j = 0;
+        while(!done && j < MAXFILES){
+            //Encontra o primeiro espaço vazio em file_info[]
+            if(strlen(_clients.at(userIndex).file_info[j].name) == 0){
+                //Encontrou um espaço vazio
+                fileIndex = j;
+                done = true;
             }
+            j++;
         }
     }
-    return false;
+
+    if(fileIndex >= 0){
+        //Encontrou algum espaço vazio
+        strncpy(_clients.at(userIndex).file_info[fileIndex].name, basename(fileName), sizeof(_clients.at(userIndex).file_info[fileIndex].name));
+        strncpy(_clients.at(userIndex).file_info[fileIndex].extension, getFileExtension(basename(fileName)),
+        sizeof(_clients.at(userIndex).file_info[fileIndex].extension));
+        strncpy(_clients.at(userIndex).file_info[fileIndex].last_modified, fileMTime,
+        sizeof(_clients.at(userIndex).file_info[fileIndex].last_modified));
+        _clients.at(userIndex).file_info[fileIndex].size = fileSize;
+        printClient(_clients.at(userIndex), true);
+        return true;
+    }
+    else{
+        //Não encontrou nenhum espaço vazio
+        fprintf(stderr, "DropboxServer - Couldn't find a space for file \'%s\'\n", fileName);
+        return false;
+    }
 }
 
 /*Adiciona um usuário a estrutura de clientes do servidor*/
@@ -486,6 +528,28 @@ void DropboxServer::recoverData(){
             }
             closedir(serverSyncDir);
         }
+}
+
+/* Retorna o índice para o arquivo em file_info se existente ou -1 caso contrário */
+int DropboxServer::findUserFile(char* userId, char* fileName){
+
+    int userIndex;
+    uint i;
+
+    userIndex = findUserIndex(userId);
+
+    if(userIndex < 0){
+        return -1;
+    }
+
+    for(i = 0; i < MAXFILES; i++){
+        //Para cada arquivo do usuário
+        if(strcmp(_clients.at(userIndex).file_info[i].name, fileName) == 0){
+            return i;
+        }
+    }
+    //Não encontrou o arquivo
+    return -1;
 }
 
 /*Faz liste(), accept() e retorna o socket de comunicação*/
