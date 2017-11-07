@@ -58,8 +58,8 @@ int main(int argc, char** argv){
                 client.send_file(comand);
                 break;
             case COM_DOWNLOAD:
-                fprintf(stderr, "COM_DOWNLOAD\n");
-                fprintf(stderr, "Comand read: \'%s\'\n", comand);
+                strncpy(comand, &comand[9], sizeof(comand));
+                client.get_file(comand);
                 break;
             case COM_LIST_SERVER:
                 fprintf(stderr, "COM_LIST_SERVER\n");

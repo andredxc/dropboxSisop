@@ -38,7 +38,7 @@ class DropboxServer{
     //Funções definidas na especificação
         void sync_server(int socket, char* userId);
         void receive_file(int socket, char* userId, char* file);
-        void send_file(char* file);
+        void send_file(int socket, char* userId, char* file);
     //Funções extras
         int initialize();
 		    void handleConnection(int* socket);

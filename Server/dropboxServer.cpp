@@ -161,7 +161,39 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
 }
 
 /*Envia um arquivo para o cliente*/
-void DropboxServer::send_file(char* file){
+void DropboxServer::send_file(int socket, char* userId, char* filePath){
+
+    char buffer[CP_MAX_MSG_SIZE], fserverPath[512];
+    int fileSize, iterations, sizeReceived, sizeToReceive, i;
+    FILE *file;
+    fprintf(stderr, "Arquivo a ser baixado1: %s \n", filePath); // TODO: DELETAR ISSO DEPOIS DE PRONTO
+
+    snprintf(fserverPath, sizeof(fserverPath), "%ssync_dir_%s/%s", SERVER_SYNC_DIR_PATH, userId, basename(filePath));
+
+    fprintf(stderr, "Arquivo a ser baixado: %s \n", fserverPath); // TODO: DELETAR ISSO DEPOIS DE PRONTO
+
+    // Abre o arquivo para leitura
+    if(!(file = fopen(fserverPath, "r"))){
+        // Erro na abertura
+        fprintf(stderr, "DropboxClient - Error opening file \'%s\'\n", filePath);
+        return;
+    }
+
+    // Descobre o tamanho do arquivo
+    fseek(file, 0, SEEK_END);
+    fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    // Envia o tamanho do arquivo
+    if(!sendInteger(socket, fileSize)){
+        fprintf(stderr, "DropboxServer - Error sending file size\n");
+        fclose(file);
+        return;
+    }
+    if(!receiveExpectedInt(socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
+        fprintf(stderr, "DropboxServer - Error receiving size confirmation from client\n");
+        fclose(file);
+        return;
+    }
 }
 //--------------------------------------------------FUNÇÕES EXTRAS
 
