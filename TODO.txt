@@ -4,4 +4,3 @@
 - Encapsular verificações dos diretórios sync_dir em uma função
 - Criar função que manda todos os arquivos do servidor para o cliente quando o sync_dir no cliente está vazio
 - Tratar upload de arquivo com nome ja existente no servidor
-- Recriar estruturas de dados quando o servidor é inicializado

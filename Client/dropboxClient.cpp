@@ -8,8 +8,8 @@
 #include <sys/inotify.h>
 #include <pthread.h>
 #include <netdb.h>
-#include <arpa/inet.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <string>
 #include <time.h>
@@ -104,7 +104,7 @@ void DropboxClient::sync_client(){
         snprintf(curFilePath, sizeof(curFilePath), "%ssync_dir_%s/%s", CLIENT_SYNC_DIR_PATH, _userId, curFileName);
         if(access(curFilePath, F_OK) == -1){
             //Arquivo não encontrado, deve ser baixado do servidor
-            fprintf(stderr, "%s - Download file %s\n", __FUNCTION__, curFilePath);
+            fprintf(stderr, "%s - Download \'%s\' from server (reason: not found)\n", __FUNCTION__, curFileName);
             if(!sendInteger(_socket, CP_SYNC_FILE_NOT_FOUND)){
                 fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_FILE_NOT_FOUND\n");
                 //TODO
@@ -118,7 +118,7 @@ void DropboxClient::sync_client(){
 
             if(diffTimeValue < 0){
                 //Arquivo mais recente está no servidor
-                fprintf(stderr, "%s - Download '%s' from server\n", __FUNCTION__, curFileName);
+                fprintf(stderr, "%s - Download '%s' from server (reason: outdated)\n", __FUNCTION__, curFileName);
                 if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
                     fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
                     //TODO

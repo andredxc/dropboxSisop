@@ -55,6 +55,7 @@ class DropboxServer{
         void logOutClient(int socket, char* userId);
         int countUserFiles(char* userId);
         int findUserIndex(const char* userId);
+        void recoverData();
 
 };
 
