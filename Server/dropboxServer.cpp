@@ -272,6 +272,21 @@ void* DropboxServer::handleConnectionThread(void* args){
                         server->receive_file(socket, userId, receiveBuffer);
                     }
                     break;
+                case CP_CLIENT_GET_FILE:
+                    fprintf(stderr, "Socket %d - CP_CLIENT_GET_FILE received\n", socket);
+                    if(!sendInteger(socket, CP_CLIENT_GET_FILE_ACK)){
+                        fprintf(stderr, "Socket %d - Error sending CP_CLIENT_GET_FILE_ACK\n", socket);
+                        continue;
+                    }
+                    //Recebe o nome do arquivo
+                    bzero(receiveBuffer, sizeof(receiveBuffer));
+                    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                        fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
+                    }
+                    else{
+                        server->send_file(socket, userId, receiveBuffer);
+                    }
+                    break;
                 case CP_SYNC_CLIENT:
                     server->sync_server(socket, userId);
                     break;
