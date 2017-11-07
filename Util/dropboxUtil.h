@@ -23,6 +23,9 @@
 #define CP_FILE_PART_RECEIVED           10
 #define CP_SEND_FILE_COMPLETE_ACK       11
 
+#define CP_SYNC_CLIENT                  12
+#define CP_SYNC_FILE_COMPUTED           13
+
 #define CP_MAX_MSG_SIZE  				256
 
 //Outras constantes
@@ -39,5 +42,7 @@ void printClient(struct client client, bool printAll);
 const char *getFileName(const char *filename, char* buffer);
 void getFileSize(const char* filePath, int* buffer);
 void getFileInfo(const char* filePath, struct file_info *info);
+time_t convertTimeString(const char* timeString);
+time_t getMTimeValue(const char* filePath);
 
 #endif

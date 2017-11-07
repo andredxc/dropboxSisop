@@ -134,3 +134,23 @@ void printClient(CLIENT client, bool printAll){
     }
     fprintf(stderr, "End of client ----------\n");
 }
+
+/* Cria uma variável tipo time_t a partir de uma string */
+time_t convertTimeString(const char* timeString){
+
+    struct tm tm;
+    strptime(timeString, "%Y-%m-%d %H:%M:%S", &tm);
+    return mktime(&tm);
+}
+
+/* Retorna uma variável time_t com o M time do arquivo */
+time_t getMTimeValue(const char* filePath){
+
+    struct stat statBuff;
+
+    if(stat(filePath, &statBuff)){
+        return 0;
+    }
+
+    return statBuff.st_mtime;
+}

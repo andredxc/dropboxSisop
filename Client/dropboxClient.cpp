@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <string>
+#include <time.h>
 #include "dropboxClient.h"
 #include "../Util/dropboxUtil.h"
 
@@ -59,33 +61,102 @@ int DropboxClient::connect_server(char* host, int port){
 /* Sincroniza os arquivos entre cliente e servidor */
 void DropboxClient::sync_client(){
 
-    DIR *localSyncDir;
-    FILE *curFile;
-    struct dirent *entry;
-    char syncDirPath[200], curFilePath[200];
-    struct file_info *info = new struct file_info;
+    fprintf(stderr, "ESTA FUNÇÃO NÃO DEVE SER CHAMADA AINDA, SEU APRESSADO\n");
 
-    snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s/", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
-    if((localSyncDir = opendir(syncDirPath)) != NULL){
-        while((entry = readdir(localSyncDir)) != NULL){
-            // Para cada arquivo no diretório
-            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
-                continue;
-            }
-            // Para todos os arquivos úteis
-            snprintf(curFilePath, sizeof(curFilePath), "%s%s", syncDirPath, entry->d_name);
-            if(!(curFile = fopen(curFilePath, "r"))){
-                fprintf(stderr, "DropboxClient - Erro abrindo arquivo %s em\n", curFilePath);
-                continue;
-            }
-            // Monta estrutura file_info, para depois printar
-            getFileInfo(curFilePath, info);
-            // printa informação do arquivo
-            printFileInfo(*info);
-        }
-        fprintf(stderr, "FIM DOS ARQUIVOS\n");
+    char buffer[CP_MAX_MSG_SIZE];
+    int numberOfFiles, i;
+    char curFileName[CP_MAX_MSG_SIZE], curFilePath[512];
+    time_t serverFileMTime, localFileMTime;
+    double diffTimeValue;
+    std::vector<std::string> serverFiles;
+
+    //Envia uma solicitação para o servidor e espera o número de arquivos como ack
+    if(!sendInteger(_socket, CP_SYNC_CLIENT)){
+        fprintf(stderr, "DropboxClient - Error sending CP_SYNC_CLIENT\n");
+        return;
     }
-    closedir(localSyncDir);
+
+    bzero(buffer, sizeof(buffer));
+    if(read(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error receiving ack for CP_SYNC_CLIENT\n");
+        return;
+    }
+    numberOfFiles = atoi(buffer);
+
+    //Laço que recebe o nome e o Mtime de cada arquivo do servidor
+    for(i = 0; i < numberOfFiles; i++){
+
+        //Recebe o nome do arquivo
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving file %d's name\n", i+1);
+        }
+        strncpy(curFileName, buffer, sizeof(curFileName));
+        serverFiles.push_back(std::string(curFileName));
+
+        //Recebe o M time do arquivo
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving file %d's M time\n", i+1);
+        }
+        serverFileMTime = convertTimeString(buffer);
+
+        //Procura o arquivo no sync_dir local
+        snprintf(curFilePath, sizeof(curFilePath), "%s%s%s/%s", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId, curFileName);
+        if(access(curFilePath, F_OK) == -1){
+            //Arquivo não encontrado, deve ser baixado do servidor
+            fprintf(stderr, "%s - Download file %s\n", __FUNCTION__, curFilePath);
+        }
+        else{
+            //Arquivo encontrado, compara os tempos de modificação
+            localFileMTime = getMTimeValue(curFilePath);
+            diffTimeValue = difftime(localFileMTime, serverFileMTime);
+
+            if(diffTimeValue < 0){
+                //Arquivo mais recente está no servidor
+                fprintf(stderr, "%s - Download '%s' from server\n", __FUNCTION__, curFileName);
+            }
+            else if(diffTimeValue > 0){
+                //Arquivo mais recente está no cliente
+                fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
+            }
+            else{
+                //O arquivo já está atualizado
+                fprintf(stderr, "%s - File '%s' is up to date\n", __FUNCTION__, curFileName);
+            }
+        }
+    }
+
+    //Verifica se há novos arquivos no cliente utilizando o vector serverFiles
+
+
+    // DIR *localSyncDir;
+    // FILE *curFile;
+    // struct dirent *entry;
+    // char curFilePath[200];
+    // struct file_info *info = new struct file_info;
+
+    // snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s/", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
+    // if((localSyncDir = opendir(syncDirPath)) != NULL){
+    //     while((entry = readdir(localSyncDir)) != NULL){
+    //         // Para cada arquivo no diretório
+    //         if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
+    //             continue;
+    //         }
+    //         // Para todos os arquivos úteis
+    //         snprintf(curFilePath, sizeof(curFilePath), "%s%s", syncDirPath, entry->d_name);
+    //         if(!(curFile = fopen(curFilePath, "r"))){
+    //             fprintf(stderr, "DropboxClient - Erro abrindo arquivo %s em\n", curFilePath);
+    //             continue;
+    //         }
+    //         // Monta estrutura file_info, para depois printar
+    //         getFileInfo(curFilePath, info);
+    //         // printa informação do arquivo
+    //         printFileInfo(*info);
+    //     }
+    //     fprintf(stderr, "FIM DOS ARQUIVOS\n");
+    // }
+    // closedir(localSyncDir);
 }
 
 /* mostra lista de arquivos e informações do cliente */
@@ -175,10 +246,7 @@ void DropboxClient::send_file(char* filePath){
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
     sizeSent = 0;
     for(i = 0; i < iterations; i++){
-<<<<<<< HEAD
-=======
 
->>>>>>> 11081ee93fc69fc92f5a6afb6b8ee0690082a7b9
         fprintf(stderr, "DropboxClient - Sending file, iteration %d of %d\n", i+1, iterations);
         sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
         bzero(buffer, sizeof(buffer));
