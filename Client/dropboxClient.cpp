@@ -95,6 +95,7 @@ void DropboxClient::sync_client(){
         }
         strncpy(curFileName, buffer, sizeof(curFileName));
         serverFiles.push_back(std::string(curFileName));
+        fprintf(stderr, "PRINT RECEBEU NOME: %s\n", curFileName);
 
         //Recebe o M time do arquivo
         bzero(buffer, sizeof(buffer));
@@ -107,6 +108,7 @@ void DropboxClient::sync_client(){
         snprintf(curFilePath, sizeof(curFilePath), "%ssync_dir_%s/%s", CLIENT_SYNC_DIR_PATH, _userId, curFileName);
         if(access(curFilePath, F_OK) == -1){
             //Arquivo não encontrado, deve ser baixado do servidor
+            fprintf(stderr, "PRINT DEVE SER BAIXADO\n");
             get_file(curFileName, syncDirPath);
         }
         else{
@@ -338,11 +340,13 @@ void DropboxClient::get_file(char* filePath, char *destination){
         fprintf(stderr, "DropboxClient - Error receiving file size\n");
         return;
     }
+
     if(!sendInteger(_socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
         fprintf(stderr, "DropboxClient - Error sending file size ack\n");
         return;
     }
     fileSize = atoi(buffer);
+
     // Recebe o arquivo
     sizeReceived = 0;
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
