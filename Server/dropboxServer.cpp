@@ -53,7 +53,6 @@ void DropboxServer::sync_server(int socket, char* userId){
     //Sincroniza diretórios
     numberOfFiles = countUserFiles(userId);
     userIndex = findUserIndex(userId);
-    fprintf(stderr, "Socket %d - Number of files: %d, userIndex: %d\n", socket, numberOfFiles, userIndex);
     if(!sendInteger(socket, numberOfFiles)){
         fprintf(stderr, "Socket %d - Error sending number of files\n", socket);
         return;
@@ -86,11 +85,9 @@ void DropboxServer::sync_server(int socket, char* userId){
         switch (atoi(buffer)) {
             case CP_SYNC_FILE_OK:
                 //Arquivo está sincronizado
-                fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_OK\n", socket);
                 break;
             case CP_CLIENT_SEND_FILE:
                 //Cliente vai fazer upload do arquivo
-                fprintf(stderr, "Socket %d - Received CP_CLIENT_SEND_FILE\n", socket);
                 if(!sendInteger(socket, CP_CLIENT_SEND_FILE_ACK)){
                     fprintf(stderr, "Socket %d - Error sending CP_CLIENT_SEND_FILE_ACK\n", socket);
                     continue;
@@ -104,9 +101,20 @@ void DropboxServer::sync_server(int socket, char* userId){
                     receive_file(socket, userId, buffer);
                 }
                 break;
-            case CP_SYNC_DOWNLOAD_FILE:
+            case CP_CLIENT_GET_FILE:
                 //Arquivo deve ser baixado do servidor
-                fprintf(stderr, "Socket %d - Received CP_SYNC_DOWNLOAD_FILE\n", socket);
+                if(!sendInteger(socket, CP_CLIENT_GET_FILE_ACK)){
+                    fprintf(stderr, "Socket %d - Error sending CP_CLIENT_GET_FILE_ACK\n", socket);
+                    continue;
+                }
+                //Recebe o nome do arquivo
+                bzero(buffer, sizeof(buffer));
+                if(read(socket, buffer, sizeof(buffer)) < 0){
+                    fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
+                }
+                else{
+                    send_file(socket, userId, buffer);
+                }
                 break;
             case CP_SYNC_FILE_NOT_FOUND:
                 //Arquivo não se encontra no client
@@ -150,7 +158,6 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
     for(i = 0; i < iterations; i++){
 
-        fprintf(stderr, "Socket %d - Receiving file, iteration %d of %d\n", socket, i+1, iterations);
         sizeToReceive = (fileSize - sizeReceived) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeReceived);
         bzero(buffer, sizeof(buffer));
         if(read(socket, buffer, sizeof(buffer)) < 0){
@@ -178,14 +185,10 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
     if(read(socket, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving file's M time\n", socket);
     }
-    if(sizeReceived == fileSize){
-        fprintf(stderr, "Socket %d - File received successfully\n", socket);
-    }
     //Preenche as estruturas internas do servidor
     if(!assignNewFile(file, buffer, fileSize, userId)){
         fprintf(stderr, "Socket %d - Error assigning new file \'%s\'\n", socket, file);
     }
-    fprintf(stderr, "Socket %d - File \'%s\' received successfully\n", socket, basename(file));
 }
 
 /*Envia um arquivo para o cliente*/
@@ -193,12 +196,10 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
 
     char fserverPath[512];
     int fileSize, iterations, sizeSent, sizeToSend;
-    char buffer[CP_MAX_MSG_SIZE], mTime[CP_MAX_MSG_SIZE];
+    char buffer[CP_MAX_MSG_SIZE];
     FILE *file;
 
     snprintf(fserverPath, sizeof(fserverPath), "%ssync_dir_%s/%s", SERVER_SYNC_DIR_PATH, userId, basename(filePath));
-
-    fprintf(stderr, "Downloading file: %s \n", fserverPath);
 
     // Abre o arquivo para leitura
     if(!(file = fopen(fserverPath, "r"))){
@@ -233,7 +234,6 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
     sizeSent = 0;
     for(int i = 0; i < iterations; i++){
 
-        fprintf(stderr, "DropboxServer - Sending file, iteration %d of %d\n", i+1, iterations);
         sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
         bzero(buffer, sizeof(buffer));
         fread((void*) buffer, sizeToSend, 1, file);
@@ -253,17 +253,10 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         return;
     }
 
-    fprintf(stderr, "ENVIOU CP_SEND_FILE_COMPLETE\n");
     // Recebe ack
     if(!receiveExpectedInt(socket, CP_SEND_FILE_COMPLETE_ACK)){
         fprintf(stderr, "DropboxServer - Error receiving ack for file completion\n");
         return;
-    }
-    fprintf(stderr, "RECEBEU CP_SEND_FILE_COMPLETE_ACK\n");
-
-    // Exibe mensagem ao servidor
-    if(sizeSent == fileSize){
-        fprintf(stderr, "DropboxServer - File sent \'%s\' successfully\n", basename(filePath));
     }
 }
 //--------------------------------------------------FUNÇÕES EXTRAS
@@ -330,12 +323,10 @@ void* DropboxServer::handleConnectionThread(void* args){
         else{
             switch(atoi(receiveBuffer)){
                 case CP_CLIENT_END_CONNECTION:
-                    fprintf(stderr, "Socket %d - CP_CLIENT_END_CONNECTION received\n", socket);
                     server->logOutClient(socket, userId);
                     server->closeConnection(socket);
                     break;
                 case CP_CLIENT_SEND_FILE:
-                    fprintf(stderr, "Socket %d - CP_CLIENT_SEND_FILE received\n", socket);
                     if(!sendInteger(socket, CP_CLIENT_SEND_FILE_ACK)){
                         fprintf(stderr, "Socket %d - Error sending CP_CLIENT_SEND_FILE_ACK\n", socket);
                         continue;
@@ -350,7 +341,6 @@ void* DropboxServer::handleConnectionThread(void* args){
                     }
                     break;
                 case CP_CLIENT_GET_FILE:
-                    fprintf(stderr, "Socket %d - CP_CLIENT_GET_FILE received\n", socket);
                     if(!sendInteger(socket, CP_CLIENT_GET_FILE_ACK)){
                         fprintf(stderr, "Socket %d - Error sending CP_CLIENT_GET_FILE_ACK\n", socket);
                         continue;
@@ -419,7 +409,6 @@ bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize,
         strncpy(_clients.at(userIndex).file_info[fileIndex].last_modified, fileMTime,
         sizeof(_clients.at(userIndex).file_info[fileIndex].last_modified));
         _clients.at(userIndex).file_info[fileIndex].size = fileSize;
-        printClient(_clients.at(userIndex), true);
         return true;
     }
     else{
@@ -485,9 +474,9 @@ void DropboxServer::logOutClient(int socket, char* userId){
     uint i;
 
     //Verifica se usuário não atingiu o limite de conexões
+    pthread_mutex_lock(&_logOutMutex);
     for (i = 0; i < _clients.size(); i++) {
         if(strcmp(userId, _clients.at(i).userId) == 0){
-            pthread_mutex_lock(&_logOutMutex);
             if(_clients.at(i).devices[0] == socket){
                 _clients.at(i).devices[0] = -1;
             }
@@ -501,6 +490,7 @@ void DropboxServer::logOutClient(int socket, char* userId){
             return;
         }
     }
+    pthread_mutex_unlock(&_logOutMutex);
     printf("Internal error 2 on logout\n");
 }
 
@@ -583,14 +573,7 @@ void DropboxServer::recoverData(){
                             snprintf(curFilePath, sizeof(curFilePath), "%s/%s", curSyncDirPath, curEntry->d_name);
                             getFileInfo(curFilePath, &clientBuffer.file_info[fileCounter]);
                             fileCounter++;
-                            // strncpy(clientBuffer.file_info[fileCounter].name, curEntry->d_name, sizeof(clientBuffer.file_info[fileCounter].name));
-                            // strncpy(clientBuffer.file_info[fileCounter].extension, getFileExtension(curEntry->d_name), sizeof(clientBuffer.file_info[fileCounter].extension));
-                            // getMTime(curFilePath, clientBuffer.file_info[fileCounter].last_modified, sizeof(clientBuffer.file_info[fileCounter].last_modified));
-                            // getFileSize(curFilePath, &clientBuffer.file_info[fileCounter].size);
                         }
-
-                        //Print para testes
-                        printClient(clientBuffer, true);
                         _clients.push_back(clientBuffer);
                     }
                     closedir(curSyncDir);
@@ -680,7 +663,6 @@ void DropboxServer::deleteFile(int socket, char* userId){
                 //FileIndex é o último elemento do array
                 bzero(_clients.at(userIndex).file_info[i-1].name, sizeof(_clients.at(userIndex).file_info[i-1].name));
             }
-            printClient(_clients.at(userIndex), true);
             break;
         }
         i++;
@@ -692,8 +674,12 @@ void DropboxServer::deleteFile(int socket, char* userId){
 /* Manda todos os dados usados no comand list_server para o cliente */
 void DropboxServer::listServer(int socket, char* userId){
 
-    int numberOfFiles, i, userIndex;
-    char buffer[CP_MAX_MSG_SIZE];
+    int numberOfFiles, i, curFileSize;
+    char buffer[CP_MAX_MSG_SIZE], syncDirPath[256];
+    char curATime[50], curMTime[50], curCTime[50], curFilePath[512];
+    DIR *localSyncDir;
+    struct dirent *entry;
+    struct stat statBuff;
 
     //Envia um ack
     if(!sendInteger(socket, CP_LIST_SERVER_ACK)){
@@ -708,31 +694,74 @@ void DropboxServer::listServer(int socket, char* userId){
         return;
     }
 
-    userIndex = findUserIndex(userId);
-    if(userIndex < 0){
-        fprintf(stderr, "Socket %d - Internal error on listServer\n", socket);
+    //Abre o diretório do sync dir
+    snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", SERVER_SYNC_DIR_PATH, userId);
+    if((localSyncDir = opendir(syncDirPath)) == NULL){
+        fprintf(stderr, "Socket %d - Error opening directory \'%s\'\n", socket ,syncDirPath);
         return;
     }
 
     for(i = 0; i < numberOfFiles; i++){
 
-        //Envia o nome do arquivo
-        bzero(buffer, sizeof(buffer));
-        strncpy(buffer, _clients.at(userIndex).file_info[i].name, sizeof(buffer));
-        if(write(socket, buffer, sizeof(buffer)) < 0){
-            fprintf(stderr, "Socket %d - Error sending file name\n", socket);
+        if((entry = readdir(localSyncDir)) == NULL){
+            fprintf(stderr, "Socket %d - Error getting file entry\n", socket);
         }
+        else{
+            // Para cada arquivo no diretório
+            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
+                if((entry = readdir(localSyncDir)) == NULL){
+                    fprintf(stderr, "Socket %d - Error getting file entry\n", socket);
+                }
+            }
 
-        //Envia o tamanho do arquivo
+            // Para todos os arquivos úteis
+            snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, entry->d_name);
+            stat(curFilePath, &statBuff);
+            strftime(curMTime, sizeof(curMTime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_mtime));
+            strftime(curATime, sizeof(curATime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_atime));
+            strftime(curCTime, sizeof(curCTime), "%Y-%m-%d %H:%M:%S", localtime(&statBuff.st_ctime));
+            getFileSize(curFilePath, &curFileSize);
 
-        //Envia o A time
+            //Envia o nome do arquivo
+            bzero(buffer, sizeof(buffer));
+            strncpy(buffer, entry->d_name, sizeof(buffer));
+            if(write(socket, buffer, sizeof(buffer)) < 0){
+                fprintf(stderr, "Socket %d - Error sending file name\n", socket);
+            }
 
-        //Envia o M time
+            //Envia o tamanho do arquivo
+            if(!sendInteger(socket, curFileSize)){
+                fprintf(stderr, "Socket %d - Error sending file size\n", socket);
+            }
 
-        //Envia o C time
+            //Envia o A time
+            bzero(buffer, sizeof(buffer));
+            strncpy(buffer, curATime, sizeof(buffer));
+            if(write(socket, buffer, sizeof(buffer)) < 0){
+                fprintf(stderr, "Socket %d - Error sending file name\n", socket);
+            }
 
-        //Espera pela confirmação do cliente
+            //Envia o M time
+            bzero(buffer, sizeof(buffer));
+            strncpy(buffer, curMTime, sizeof(buffer));
+            if(write(socket, buffer, sizeof(buffer)) < 0){
+                fprintf(stderr, "Socket %d - Error sending file name\n", socket);
+            }
+
+            //Envia o C time
+            bzero(buffer, sizeof(buffer));
+            strncpy(buffer,curCTime, sizeof(buffer));
+            if(write(socket, buffer, sizeof(buffer)) < 0){
+                fprintf(stderr, "Socket %d - Error sending file name\n", socket);
+            }
+
+            //Espera pela confirmação do cliente
+            if(!receiveExpectedInt(socket, CP_LIST_SERVER_FILE_OK)){
+                fprintf(stderr, "Socket %d - Error getting ack for file \'%s\'\n", socket, entry->d_name);
+            }
+        }
     }
+    closedir(localSyncDir);
 }
 
 /*Faz liste(), accept() e retorna o socket de comunicação*/

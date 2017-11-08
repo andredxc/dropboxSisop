@@ -50,7 +50,7 @@ int main(int argc, char** argv){
 
     //Cria a thread que verifica por alterações nos arquivos
     snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, client.getUserId());
-    //pthread_create(&fileWatcherThread, NULL, DropboxClient::fileWatcher, (void*) &client);
+    pthread_create(&fileWatcherThread, NULL, DropboxClient::fileWatcher, (void*) &client);
 
     //Lê comandos do usuário
     while(client.getIsConnected()){
@@ -66,6 +66,7 @@ int main(int argc, char** argv){
             case COM_LIST_SERVER:
                 fprintf(stderr, "COM_LIST_SERVER\n");
                 fprintf(stderr, "Comand read: \'%s\'\n", comand);
+                client.listServerComand();
                 break;
             case COM_LIST_CLIENT:
                 client.list_client();

@@ -83,6 +83,7 @@ void DropboxClient::sync_client(){
         return;
     }
     numberOfFiles = atoi(buffer);
+    snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
 
     //Laço que recebe o nome e o Mtime de cada arquivo do servidor
     for(i = 0; i < numberOfFiles; i++){
@@ -106,10 +107,7 @@ void DropboxClient::sync_client(){
         snprintf(curFilePath, sizeof(curFilePath), "%ssync_dir_%s/%s", CLIENT_SYNC_DIR_PATH, _userId, curFileName);
         if(access(curFilePath, F_OK) == -1){
             //Arquivo não encontrado, deve ser baixado do servidor
-            fprintf(stderr, "%s - Download \'%s\' from server (reason: not found)\n", __FUNCTION__, curFileName);
-            if(!sendInteger(_socket, CP_SYNC_FILE_NOT_FOUND)){
-                fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_FILE_NOT_FOUND\n");
-            }
+            get_file(curFileName, syncDirPath);
         }
         else{
             //Arquivo encontrado, compara os tempos de modificação
@@ -118,20 +116,14 @@ void DropboxClient::sync_client(){
 
             if(diffTimeValue < 0){
                 //Arquivo mais recente está no servidor
-                fprintf(stderr, "%s - Download '%s' from server (reason: outdated)\n", __FUNCTION__, curFileName);
-                if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
-                    fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
-                    //TODO
-                }
+                get_file(curFileName, syncDirPath);
             }
             else if(diffTimeValue > 0){
                 //Arquivo mais recente está no cliente
-                fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
                 send_file(curFilePath);
             }
             else{
                 //O arquivo já está atualizado
-                fprintf(stderr, "%s - File '%s' is up to date\n", __FUNCTION__, curFileName);
                 if(!sendInteger(_socket, CP_SYNC_FILE_OK)){
                     fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_FILE_OK\n");
                     //TODO
@@ -139,60 +131,8 @@ void DropboxClient::sync_client(){
             }
         }
     }
-// =======
-//
-// 		while(currentAttempt!= maxAttempts && done == 0) {
-//                 	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
-//                     		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
-// 				currentAttempt++;
-//                 	}
-// 			done = 1;
-// 		}
-// 		if(done == 0){
-// 			close_conection();
-// 			close(_socket);
-// 			return;
-// 		}
-// 	    }
-//
-//
-//             else{
-// 	       if(diffTimeValue > 0){
-//                     //Arquivo mais recente está no cliente
-//                     fprintf(stderr, "%s - Upload '%s' to server\n", __FUNCTION__, curFileName);
-//                     while(currentAttempt!= maxAttempts && done == 0) {
-//                 	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
-//                     		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
-// 				currentAttempt++;
-//                 	}
-// 			done = 1;
-// 		    }
-// 		    if(done == 0){
-// 			   close_conection();
-// 			   close(_socket);
-// 			   return;
-// 		}
-//                else{
-//                   while(currentAttempt!= maxAttempts && done == 0) {
-//                 	if(!sendInteger(_socket, CP_SYNC_DOWNLOAD_FILE)){
-//                     		fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_DOWNLOAD_FILE\n");
-// 				currentAttempt++;
-//                 	}
-// 			done = 1;
-// 		  }
-// 		  if(done == 0){
-// 			close_conection();
-// 			close(_socket);
-// 			return;
-// 		  }
-// 	      }
-//          }
-// >>>>>>> deaa3ab1c20dd0da7fb501cf5dadb5642c5e30d3
-//     }
-// }
 
     //Verifica se há novos arquivos no cliente utilizando o vector serverFiles
-    snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
     if((localSyncDir = opendir(syncDirPath)) != NULL){
         while((entry = readdir(localSyncDir)) != NULL){
             // Para cada arquivo no diretório
@@ -212,7 +152,6 @@ void DropboxClient::sync_client(){
             if(!syncedFile){
                 //Arquivo não sicronizado, deve ser enviado ao servidor
                 snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, entry->d_name);
-                fprintf(stderr, "DropboxClient - Uploading unsynchronized file \'%s\'\n", basename(curFilePath));
                 send_file(curFilePath);
             }
         }
@@ -317,7 +256,6 @@ void DropboxClient::send_file(char* filePath){
     sizeSent = 0;
     for(i = 0; i < iterations; i++){
 
-        fprintf(stderr, "DropboxClient - Sending file, iteration %d of %d\n", i+1, iterations);
         sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
         bzero(buffer, sizeof(buffer));
         fread((void*) buffer, sizeToSend, 1, file);
@@ -347,11 +285,6 @@ void DropboxClient::send_file(char* filePath){
     if(write(_socket, mTime, sizeof(mTime)) < 0){
         fprintf(stderr, "DropboxClient - Error sending file's M time \'%s\'\n", buffer);
         return;
-    }
-
-    // Exibe mensagem ao usuário
-    if(sizeSent == fileSize){
-        fprintf(stderr, "DropboxClient - File sent \'%s\' successfully\n", basename(filePath));
     }
 }
 
@@ -392,14 +325,10 @@ void DropboxClient::get_file(char* filePath, char *destination){
         fprintf(stderr, "DropboxClient - Error confirming file existance\n");
         return;
     }
-    // if(!sendInteger(_socket, CP_CLIENT_GET_FILE_EXISTS_ACK)){
-    //     fprintf(stderr, "DropboxClient - Error sending file existance ack\n");
-    //     return;
-    // }
 
     // Cria o arquivo
     if(!(newFile = fopen(newfilePath, "w"))){
-        fprintf(stderr, "Socket %d - Error creating file \'%s\'\n", socket, destination);
+        fprintf(stderr, "DropboxClient - Error creating file \'%s\'\n", destination);
         return;
     }
 
@@ -416,11 +345,9 @@ void DropboxClient::get_file(char* filePath, char *destination){
     fileSize = atoi(buffer);
     // Recebe o arquivo
     sizeReceived = 0;
-    fprintf(stderr, "DropboxClient - Downloading \'%s\' to \'%s\'\n", filePath, destination);
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
     for(int i = 0; i < iterations; i++){
 
-        fprintf(stderr, "Socket %d - Receiving file, iteration %d of %d\n", _socket, i+1, iterations);
         sizeToReceive = (fileSize - sizeReceived) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeReceived);
         bzero(buffer, sizeof(buffer));
         if(read(_socket, buffer, sizeof(buffer)) < 0){
@@ -438,18 +365,11 @@ void DropboxClient::get_file(char* filePath, char *destination){
         fprintf(stderr, "Socket %d - Error receiving CP_SEND_FILE_COMPLETE\n", _socket);
         return;
     }
-    fprintf(stderr, "RECEBEU CP_SEND_FILE_COMPLETE\n");
 
     if(!sendInteger(_socket, CP_SEND_FILE_COMPLETE_ACK)){
         fprintf(stderr, "Socket %d - Error sending CP_SEND_FILE_COMPLETE_ACK\n", _socket);
         return;
     }
-    fprintf(stderr, "ENVIOU CP_SEND_FILE_COMPLETE_ACK\n");
-    // Exibe mensagem ao usuário
-    if(sizeReceived == fileSize){
-        fprintf(stderr, "DropboxClient - File sent \'%s\' successfully\n", basename(filePath));
-    }
-    fprintf(stderr, "Tamanho do arquivo: %d\n", fileSize);
 }
 
 /* Delete algum arquivo do servidor */
@@ -556,7 +476,6 @@ void* DropboxClient::fileWatcher(void* clientClass){
     DropboxClient* client = (DropboxClient*) clientClass;
 
     snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, client->getUserId());
-    fprintf(stderr, "DropboxClient - syncDirPath = %s\n", syncDirPath);
 
     fileDesc = inotify_init();
 
@@ -588,17 +507,14 @@ void* DropboxClient::fileWatcher(void* clientClass){
                 event = (struct inotify_event*) eventPtr;
 
                 if(event->mask & IN_MODIFY){
-                    fprintf(stderr, "DropboxClient - File \'%s\' was modified\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->send_file(curFilePath);
                 }
                 else if(event->mask & IN_CREATE){
-                    fprintf(stderr, "DropboxClient - File \'%s\' was created\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->send_file(curFilePath);
                 }
                 else if(event->mask & IN_DELETE){
-                    fprintf(stderr, "DropboxClient - File \'%s\' was deleted\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->delete_file(curFilePath);
                 }

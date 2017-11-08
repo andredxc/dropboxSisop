@@ -34,7 +34,6 @@ class DropboxClient{
         void getSyncDirComand();
         void listServerComand();
         bool sendUserId(char* userId);
-
         int getSocket();
         bool getIsConnected();
         char* getUserId();
