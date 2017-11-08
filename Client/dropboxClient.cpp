@@ -142,7 +142,7 @@ void DropboxClient::sync_client(){
 
             //Para cada arquivo útil do diretório
             syncedFile = false;
-            for(i = 0; i < serverFiles.size(); i++){
+            for(i = 0; i < (int) serverFiles.size(); i++){
                 if(strcmp(serverFiles.at(i).c_str(), entry->d_name) == 0){
                     //Encontrou arquivo com mesmo nome, já está sincrinizado
                     syncedFile = true;
