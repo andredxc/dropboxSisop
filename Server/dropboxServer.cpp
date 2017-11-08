@@ -20,8 +20,7 @@ struct classAndSocket{
 
 /*Constructor*/
 DropboxServer::DropboxServer(){
-    pthread_mutex_init(&_logInMutex, NULL);
-    pthread_mutex_init(&_logOutMutex, NULL);
+    pthread_mutex_init(&_clientStructMutex, NULL);
 }
 
 //--------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
@@ -380,6 +379,8 @@ bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize,
     bool done = false;
     int userIndex, fileIndex;
 
+    //TODO: pthread_mutex_lock();
+
     userIndex = findUserIndex(userId);
     fileIndex = findUserFile(userId, fileName);
 
@@ -409,11 +410,13 @@ bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize,
         strncpy(_clients.at(userIndex).file_info[fileIndex].last_modified, fileMTime,
         sizeof(_clients.at(userIndex).file_info[fileIndex].last_modified));
         _clients.at(userIndex).file_info[fileIndex].size = fileSize;
+        //TODO: pthread_mutex_unlock();
         return true;
     }
     else{
         //Não encontrou nenhum espaço vazio
         fprintf(stderr, "DropboxServer - Couldn't find a space for file \'%s\'\n", fileName);
+        //TODO: pthread_mutex_unlock();
         return false;
     }
 }
@@ -425,14 +428,14 @@ bool DropboxServer::logInClient(int socket, char* userId){
     bool foundUser = false;
     CLIENT newClient;
 
-    pthread_mutex_lock(&_logInMutex);
+    pthread_mutex_lock(&_clientStructMutex);
     //Verifica se usuário não atingiu o limite de conexões
     for (i = 0; i < _clients.size(); i++) {
         if(strcmp(userId, _clients.at(i).userId) == 0){
             foundUser = true;
             if(_clients.at(i).devices[0] > 0 && _clients.at(i).devices[1] > 0){
                 printf("Socket %d - User already has 2 connections\n", socket);
-                pthread_mutex_unlock(&_logInMutex);
+                pthread_mutex_unlock(&_clientStructMutex);
                 return false;
             }
             break;
@@ -449,7 +452,7 @@ bool DropboxServer::logInClient(int socket, char* userId){
         }
         else{
             printf("Socket %d - Internal error, one position should be empty\n", socket);
-            pthread_mutex_unlock(&_logInMutex);
+            pthread_mutex_unlock(&_clientStructMutex);
             return false;
         }
     }
@@ -464,7 +467,7 @@ bool DropboxServer::logInClient(int socket, char* userId){
         }
         _clients.push_back(newClient);
     }
-    pthread_mutex_unlock(&_logInMutex);
+    pthread_mutex_unlock(&_clientStructMutex);
     return true;
 }
 
@@ -474,7 +477,7 @@ void DropboxServer::logOutClient(int socket, char* userId){
     uint i;
 
     //Verifica se usuário não atingiu o limite de conexões
-    pthread_mutex_lock(&_logOutMutex);
+    pthread_mutex_lock(&_clientStructMutex);
     for (i = 0; i < _clients.size(); i++) {
         if(strcmp(userId, _clients.at(i).userId) == 0){
             if(_clients.at(i).devices[0] == socket){
@@ -486,11 +489,11 @@ void DropboxServer::logOutClient(int socket, char* userId){
             else{
                 printf("Internal error on logout\n");
             }
-            pthread_mutex_unlock(&_logOutMutex);
+            pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
     }
-    pthread_mutex_unlock(&_logOutMutex);
+    pthread_mutex_unlock(&_clientStructMutex);
     printf("Internal error 2 on logout\n");
 }
 
@@ -574,7 +577,9 @@ void DropboxServer::recoverData(){
                             getFileInfo(curFilePath, &clientBuffer.file_info[fileCounter]);
                             fileCounter++;
                         }
+                        pthread_mutex_lock(&_clientStructMutex);
                         _clients.push_back(clientBuffer);
+                        pthread_mutex_unlock(&_clientStructMutex);
                     }
                     closedir(curSyncDir);
                 }
@@ -633,11 +638,13 @@ void DropboxServer::deleteFile(int socket, char* userId){
 
     //Remove o arquivo das estruturas internas do servidor
     //A consistência deve ser mantida, isto é, não podem haver registros vazios no meio do array
+    pthread_mutex_lock(&_clientStructMutex);
     userIndex = findUserIndex(userId);
     fileIndex = findUserFile(userId, basename(filePath));
 
     if(fileIndex < 0){
         fprintf(stderr, "Socket %d - Internal error, file \'%s\' not found\n", socket, basename(filePath));
+        pthread_mutex_unlock(&_clientStructMutex);
         return;
     }
 
@@ -667,7 +674,7 @@ void DropboxServer::deleteFile(int socket, char* userId){
         }
         i++;
     }
-
+    pthread_mutex_unlock(&_clientStructMutex);
     fprintf(stderr, "Socket %d - File \'%s\' was deleted\n", socket, basename(filePath));
 }
 
@@ -816,7 +823,6 @@ int DropboxServer::initialize(){
 void DropboxServer::closeConnection(int socket){
 
 	printf("DropboxServer - Closing connection with socket %d\n", socket);
-    //TODO: Deslogar o usuário
 	close(socket);
     pthread_exit(NULL);
 }

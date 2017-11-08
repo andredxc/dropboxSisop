@@ -31,7 +31,7 @@ class DropboxServer{
     private:
         int _serverSocket;
         std::vector<CLIENT> _clients;
-        pthread_mutex_t _logInMutex, _logOutMutex;
+        pthread_mutex_t _clientStructMutex;;
 
     public:
         DropboxServer();

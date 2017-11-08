@@ -95,7 +95,6 @@ void DropboxClient::sync_client(){
         }
         strncpy(curFileName, buffer, sizeof(curFileName));
         serverFiles.push_back(std::string(curFileName));
-        fprintf(stderr, "PRINT RECEBEU NOME: %s\n", curFileName);
 
         //Recebe o M time do arquivo
         bzero(buffer, sizeof(buffer));
@@ -108,7 +107,6 @@ void DropboxClient::sync_client(){
         snprintf(curFilePath, sizeof(curFilePath), "%ssync_dir_%s/%s", CLIENT_SYNC_DIR_PATH, _userId, curFileName);
         if(access(curFilePath, F_OK) == -1){
             //Arquivo não encontrado, deve ser baixado do servidor
-            fprintf(stderr, "PRINT DEVE SER BAIXADO\n");
             get_file(curFileName, syncDirPath);
         }
         else{
