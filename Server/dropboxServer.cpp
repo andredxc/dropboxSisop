@@ -327,6 +327,9 @@ void* DropboxServer::handleConnectionThread(void* args){
                 case CP_CLIENT_DELETE_FILE:
                     server->deleteFile(socket, userId);
                     break;
+                case CP_LIST_SERVER:
+                    server->listServer(socket, userId);
+                    break;
                 default:
                     fprintf(stderr, "Socket %d - Unrecognized message %d\n", socket, atoi(receiveBuffer));
                     break;
@@ -641,6 +644,52 @@ void DropboxServer::deleteFile(int socket, char* userId){
     }
 
     fprintf(stderr, "Socket %d - File \'%s\' was deleted\n", socket, basename(filePath));
+}
+
+/* Manda todos os dados usados no comand list_server para o cliente */
+void DropboxServer::listServer(int socket, char* userId){
+
+    int numberOfFiles, i, userIndex;
+    char buffer[CP_MAX_MSG_SIZE];
+
+    //Envia um ack
+    if(!sendInteger(socket, CP_LIST_SERVER_ACK)){
+        fprintf(stderr, "Socket %d - Error sending CP_LIST_SERVER_ACK\n", socket);
+        return;
+    }
+
+    //Envia o número de arquivos
+    numberOfFiles = countUserFiles(userId);
+    if(!sendInteger(socket, numberOfFiles)){
+        fprintf(stderr, "Socket %d - Error sending number of files\n", socket);
+        return;
+    }
+
+    userIndex = findUserIndex(userId);
+    if(userIndex < 0){
+        fprintf(stderr, "Socket %d - Internal error on listServer\n", socket);
+        return;
+    }
+
+    for(i = 0; i < numberOfFiles; i++){
+
+        //Envia o nome do arquivo
+        bzero(buffer, sizeof(buffer));
+        strncpy(buffer, _clients.at(userIndex).file_info[i].name, sizeof(buffer));
+        if(write(socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "Socket %d - Error sending file name\n", socket);
+        }
+
+        //Envia o tamanho do arquivo
+
+        //Envia o A time
+
+        //Envia o M time
+
+        //Envia o C time
+
+        //Espera pela confirmação do cliente
+    }
 }
 
 /*Faz liste(), accept() e retorna o socket de comunicação*/

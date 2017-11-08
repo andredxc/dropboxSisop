@@ -601,9 +601,9 @@ void DropboxClient::getSyncDirComand(){
 /* Executa as ações referentes ao comand list_server */
 void DropboxClient::listServerComand(){
 
-    std::vector<FILE> fileList;
     char buffer[CP_MAX_MSG_SIZE];
-    int numberOfFiles, i;
+    char curFileName[CP_MAX_MSG_SIZE], curATime[50], curMTime[50], curCTime[50];
+    int numberOfFiles, i, curFileSize;
 
     //Manda solicitação para o servidor
     if(!sendInteger(_socket, CP_LIST_SERVER)){
@@ -624,8 +624,54 @@ void DropboxClient::listServerComand(){
     }
     numberOfFiles = atoi(buffer);
 
+        fprintf(stderr, "FILES STORED IN THE SERVER'S SYNC_DIR: \n\n");
+        fprintf(stderr, "%30s    %8s    %30s     %30s     %30s\n", "Name", "Size (B)", "Creation Time", "Modification Time", "Access Time");
+
     //Coleta os dados de FILE para todos os arquivos
     for(i = 0; i < numberOfFiles; i++){
+
+        //Recebe nome do arquivo
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving file name\n");
+        }
+        strncpy(curFileName, buffer, sizeof(curFileName));
+
+        //Recebe tamanho do arquivo
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving file size\n");
+        }
+        curFileSize = atoi(buffer);
+
+        //Recebe A time do arquivo
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving A time\n");
+        }
+        strncpy(curATime, buffer, sizeof(curFileName));
+
+        //Recebe M time do arquivo
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving M time\n");
+        }
+        strncpy(curMTime, buffer, sizeof(curFileName));
+
+        //Recebe C time do arquivo
+        bzero(buffer, sizeof(buffer));
+        if(read(_socket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving C time\n");
+        }
+        strncpy(curCTime, buffer, sizeof(curFileName));
+
+        //Imprime a informação toda na tela
+        fprintf(stderr, "%30s     %6d     %30s     %30s     %30s\n", curFileName, curFileSize, curCTime, curMTime, curATime);
+
+        //Envia uma confirmação
+        if(!sendInteger(_socket, CP_LIST_SERVER_FILE_OK)){
+            fprintf(stderr, "DropboxClient - Error sending CP_LIST_SERVER_FILE_OK\n");
+        }
     }
 }
 

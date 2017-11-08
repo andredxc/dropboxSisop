@@ -58,6 +58,7 @@ class DropboxServer{
         void recoverData();
         int findUserFile(char* userId, char* fileName);
         void deleteFile(int socket, char* userId);
+        void listServer(int socket, char* userId);
 
 };
 
