@@ -40,7 +40,7 @@ bool receiveExpectedInt(int socket, int message){
 		    return false;
   	}
   	if(atoi(buffer) != message){
-  		  fprintf(stderr, "DropboxUtil - Int received wasn't expected (%d)\n", atoi(buffer));
+  		  fprintf(stderr, "DropboxUtil - Int received wasn't expected (received: %d, expected: %d)\n", atoi(buffer), message);
 		    return false;
   	}
   	return true;

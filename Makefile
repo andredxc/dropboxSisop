@@ -10,8 +10,8 @@ all: dropboxUtil.o dropboxClient.o dropboxServer.o
 	mv dropboxUtil.o $(UTIL_DIR)
 
 debug: dropboxClientDebug dropboxServerDebug dropboxUtilDebug
-	g++ -o client $(CLIENT_DIR)mainClient.cpp dropboxClient.o -lpthread
-	g++ -o server $(SERVER_DIR)mainServer.cpp dropboxServer.o -lpthread
+	g++ -o client $(CLIENT_DIR)mainClient.cpp dropboxClient.o dropboxUtil.o -lpthread
+	g++ -o server $(SERVER_DIR)mainServer.cpp dropboxServer.o dropboxUtil.o -lpthread
 	mv dropboxServer.o $(SERVER_DIR)
 	mv dropboxClient.o $(CLIENT_DIR)
 

@@ -355,11 +355,11 @@ void DropboxClient::send_file(char* filePath){
     }
 }
 
-/**/
+/* Recebe um arquivo do servidor */
 void DropboxClient::get_file(char* filePath, char *destination){
 
     FILE *file = NULL;
-    int fileSize, file_existance, sizeReceived, iterations, sizeToReceive;
+    int fileSize, sizeReceived, iterations, sizeToReceive;
     char buffer[CP_MAX_MSG_SIZE], newfilePath[CP_MAX_MSG_SIZE];
     FILE *newFile;
 
@@ -391,20 +391,14 @@ void DropboxClient::get_file(char* filePath, char *destination){
         return;
     }
     // Recebe confirmação da existência do arquivo
-    bzero(buffer, sizeof(buffer));
-    if(read(_socket, buffer, sizeof(buffer)) < 0){
+    if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_EXISTS)){
         fprintf(stderr, "DropboxClient - Error confirming file existance\n");
         return;
     }
-    if(!sendInteger(_socket, CP_CLIENT_GET_FILE_SIZE_ACK)){
-        fprintf(stderr, "DropboxClient - Error sending file existance ack\n");
-        return;
-    }
-    file_existance = atoi(buffer);
-    if(file_existance == 0){
-        fprintf(stderr, "DropboxClient - file does not exist\n");
-        return;
-    }
+    // if(!sendInteger(_socket, CP_CLIENT_GET_FILE_EXISTS_ACK)){
+    //     fprintf(stderr, "DropboxClient - Error sending file existance ack\n");
+    //     return;
+    // }
 
     // Cria o arquivo
     if(!(newFile = fopen(newfilePath, "w"))){
@@ -446,10 +440,13 @@ void DropboxClient::get_file(char* filePath, char *destination){
         fprintf(stderr, "Socket %d - Error receiving CP_SEND_FILE_COMPLETE\n", _socket);
         return;
     }
+    fprintf(stderr, "RECEBEU CP_SEND_FILE_COMPLETE\n");
+
     if(!sendInteger(_socket, CP_SEND_FILE_COMPLETE_ACK)){
         fprintf(stderr, "Socket %d - Error sending CP_SEND_FILE_COMPLETE_ACK\n", _socket);
         return;
     }
+    fprintf(stderr, "ENVIOU CP_SEND_FILE_COMPLETE_ACK\n");
     // Exibe mensagem ao usuário
     if(sizeReceived == fileSize){
         fprintf(stderr, "DropboxClient - File sent \'%s\' successfully\n", basename(filePath));

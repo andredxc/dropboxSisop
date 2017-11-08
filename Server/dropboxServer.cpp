@@ -206,7 +206,7 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         fprintf(stderr, "DropboxServer - Error opening file \'%s\'\n", filePath);
     }
     // Envia confirmação da existência do arquivo
-    if(!sendInteger(socket, file != NULL)){
+    if(!sendInteger(socket, CP_CLIENT_GET_FILE_EXISTS)){
         fprintf(stderr, "DropboxServer - Error confirming file existance\n");
         return;
     }
@@ -252,17 +252,19 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         fprintf(stderr, "DropboxServer - Error sending file send completion message\n");
         return;
     }
+
+    fprintf(stderr, "ENVIOU CP_SEND_FILE_COMPLETE\n");
     // Recebe ack
     if(!receiveExpectedInt(socket, CP_SEND_FILE_COMPLETE_ACK)){
         fprintf(stderr, "DropboxServer - Error receiving ack for file completion\n");
         return;
     }
+    fprintf(stderr, "RECEBEU CP_SEND_FILE_COMPLETE_ACK\n");
 
     // Exibe mensagem ao servidor
     if(sizeSent == fileSize){
         fprintf(stderr, "DropboxServer - File sent \'%s\' successfully\n", basename(filePath));
     }
-
 }
 //--------------------------------------------------FUNÇÕES EXTRAS
 
