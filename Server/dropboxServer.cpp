@@ -78,7 +78,6 @@ void DropboxServer::sync_server(int socket, char* userId){
         bzero(buffer, sizeof(buffer));
         if(read(socket, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error receiving answer from client\n", socket);
-            //TODO
         }
 
         switch (atoi(buffer)) {
@@ -379,12 +378,13 @@ bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize,
     bool done = false;
     int userIndex, fileIndex;
 
-    //TODO: pthread_mutex_lock();
+    pthread_mutex_lock(&_clientStructMutex);
 
     userIndex = findUserIndex(userId);
     fileIndex = findUserFile(userId, fileName);
 
     if(userIndex < 0){
+        pthread_mutex_unlock(&_clientStructMutex);
         return false;
     }
 
@@ -410,13 +410,13 @@ bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize,
         strncpy(_clients.at(userIndex).file_info[fileIndex].last_modified, fileMTime,
         sizeof(_clients.at(userIndex).file_info[fileIndex].last_modified));
         _clients.at(userIndex).file_info[fileIndex].size = fileSize;
-        //TODO: pthread_mutex_unlock();
+        pthread_mutex_unlock(&_clientStructMutex);
         return true;
     }
     else{
         //Não encontrou nenhum espaço vazio
         fprintf(stderr, "DropboxServer - Couldn't find a space for file \'%s\'\n", fileName);
-        //TODO: pthread_mutex_unlock();
+        pthread_mutex_unlock(&_clientStructMutex);
         return false;
     }
 }

@@ -126,7 +126,6 @@ void DropboxClient::sync_client(){
                 //O arquivo já está atualizado
                 if(!sendInteger(_socket, CP_SYNC_FILE_OK)){
                     fprintf(stderr, "DropboxClient - Erro sending CP_SYNC_FILE_OK\n");
-                    //TODO
                 }
             }
         }
