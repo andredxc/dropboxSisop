@@ -364,9 +364,6 @@ void DropboxClient::get_file(char* filePath, char *destination){
     FILE *newFile;
 
     snprintf(newfilePath, sizeof(newfilePath), "%s/%s", destination, filePath);
-    fprintf(stderr, "DropboxClient - Downloading \'%s\' to \'%s\'\n", filePath, destination);
-
-    printf(newfilePath, sizeof(newfilePath), "%s/%s", destination, filePath);
 
     // Verifica o tamanho do nome do arquivo
     if(strlen(basename(filePath)) > CP_MAX_MSG_SIZE-1){
@@ -419,6 +416,7 @@ void DropboxClient::get_file(char* filePath, char *destination){
     fileSize = atoi(buffer);
     // Recebe o arquivo
     sizeReceived = 0;
+    fprintf(stderr, "DropboxClient - Downloading \'%s\' to \'%s\'\n", filePath, destination);
     iterations = (fileSize%CP_MAX_MSG_SIZE) > 0 ? fileSize/CP_MAX_MSG_SIZE + 1 : fileSize/CP_MAX_MSG_SIZE;
     for(int i = 0; i < iterations; i++){
 
