@@ -50,33 +50,40 @@ int main(int argc, char** argv){
 
     //Cria a thread que verifica por alterações nos arquivos
     snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, client.getUserId());
-    //pthread_create(&fileWatcherThread, NULL, DropboxClient::fileWatcher, (void*) &client);
+    pthread_create(&fileWatcherThread, NULL, DropboxClient::fileWatcher, (void*) &client);
 
     //Lê comandos do usuário
     while(client.getIsConnected()){
         switch (client.readComand(comand, sizeof(comand))){
             case COM_UPLOAD:
                 strncpy(comand, &comand[7], sizeof(comand));
+                client.lockSocket();
                 client.send_file(comand);
+                client.unlockSocket();
                 break;
             case COM_DOWNLOAD:
                 strncpy(comand, &comand[9], sizeof(comand));
+                client.lockSocket();
                 client.get_file(comand, getcwd(buffer, sizeof(buffer)));
+                client.unlockSocket();
                 break;
             case COM_LIST_SERVER:
-                fprintf(stderr, "COM_LIST_SERVER\n");
-                fprintf(stderr, "Comand read: \'%s\'\n", comand);
+                client.lockSocket();
                 client.listServerComand();
+                client.unlockSocket();
                 break;
             case COM_LIST_CLIENT:
                 client.list_client();
                 break;
-            break;
             case COM_GET_SYNC_DIR:
+                client.lockSocket();
                 client.getSyncDirComand();
+                client.unlockSocket();
                 break;
             case COM_EXIT:
+                client.lockSocket();
                 client.close_connection();
+                client.unlockSocket();
                 break;
         }
     }

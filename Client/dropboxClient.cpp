@@ -19,6 +19,7 @@
 /*Constructor*/
 DropboxClient::DropboxClient(){
     _isConnected = false;
+    pthread_mutex_init(&_comunicationMutex, NULL);
 }
 
 //------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
@@ -76,7 +77,7 @@ void DropboxClient::sync_client(){
         return;
     }
 
-    //Recebe o número de arquivos desse usuário no servidor
+    //Recebe o número de arquivos deste usuário no servidor
     bzero(buffer, sizeof(buffer));
     if(read(_socket, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error receiving ack for CP_SYNC_CLIENT\n");
@@ -509,15 +510,21 @@ void* DropboxClient::fileWatcher(void* clientClass){
 
                 if(event->mask & IN_MODIFY){
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
+                    client->lockSocket();
                     client->send_file(curFilePath);
+                    client->unlockSocket();
                 }
                 else if(event->mask & IN_CREATE){
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
+                    client->lockSocket();
                     client->send_file(curFilePath);
+                    client->unlockSocket();
                 }
                 else if(event->mask & IN_DELETE){
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
+                    client->lockSocket();
                     client->delete_file(curFilePath);
+                    client->unlockSocket();
                 }
             }
         }
@@ -540,8 +547,8 @@ void DropboxClient::getSyncDirComand(){
         if((errorCode = mkdir(CLIENT_SYNC_DIR_PATH, S_IRWXU)) != 0){
             fprintf(stderr, "DropboxClient - Error %d creating sync dir %s\n", errorCode, CLIENT_SYNC_DIR_PATH);
             close_connection();
-	    close(_socket);
-	    fprintf(stderr, "Connection Close, Socket Close\n");
+      	    close(_socket);
+      	    fprintf(stderr, "Connection Close, Socket Close\n");
             return;
         }
     }
@@ -551,17 +558,14 @@ void DropboxClient::getSyncDirComand(){
         if((errorCode = mkdir(syncDirPath, S_IRWXU)) != 0){
             fprintf(stderr, "DropboxClient - Error %d creating directory %s\n", errorCode, syncDirPath);
             close_connection();
-	    close(_socket);
-	    fprintf(stderr, "Connection Close, Socket Close\n");
+      	    close(_socket);
+      	    fprintf(stderr, "Connection Close, Socket Close\n");
             return;
         }
         sync_client();
-        // sendInteger(_socket, CP_SYNC_DIR_NOT_FOUND);
-        //dumpServerFiles();
     }
     else{
         // Diretório encontrado
-        // sendInteger(_socket, CP_SYNC_DIR_FOUND);
         sync_client();
     }
 }
@@ -677,6 +681,16 @@ bool DropboxClient::sendUserId(char* userId){
 
     // default (outro erro)
     return false;
+}
+
+void DropboxClient::lockSocket(){
+
+    pthread_mutex_lock(&_comunicationMutex);
+}
+
+void DropboxClient::unlockSocket(){
+
+    pthread_mutex_unlock(&_comunicationMutex);
 }
 
 int DropboxClient::getSocket(){ return _socket; }

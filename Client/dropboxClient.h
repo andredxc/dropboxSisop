@@ -19,6 +19,7 @@ class DropboxClient{
         int _socket;
         bool _isConnected;
         char _userId[MAXNAME];
+        pthread_mutex_t _comunicationMutex;
 
     public:
     //Funções definidas na especificação
@@ -38,6 +39,9 @@ class DropboxClient{
         bool getIsConnected();
         char* getUserId();
         void setUserId(char* userId);
+
+        void lockSocket();
+        void unlockSocket();
 
         void list_client();
 
