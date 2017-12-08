@@ -508,7 +508,10 @@ void* DropboxClient::fileWatcher(void* clientClass){
                 //Itera sobre os eventos lidos
                 event = (struct inotify_event*) eventPtr;
 
-                if(event->mask & IN_MODIFY){
+                if(event->name && (event->name[0] == '.'  || event->name[strlen(event->name)-1] == '~')){
+                    //Disconsidera arquivos ocultos
+                }
+                else if(event->mask & IN_MODIFY){
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
                     client->send_file(curFilePath);

@@ -187,6 +187,8 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
     if(!assignNewFile(file, buffer, fileSize, userId)){
         fprintf(stderr, "Socket %d - Error assigning new file \'%s\'\n", socket, file);
     }
+
+    fprintf(stderr, "Socket %d - File \'%s\' was received\n", socket, basename(file));
 }
 
 /*Envia um arquivo para o cliente*/
@@ -256,6 +258,8 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         fprintf(stderr, "DropboxServer - Error receiving ack for file completion\n");
         return;
     }
+
+    fprintf(stderr, "Socket %d - File \'%s\' was sent\n", socket, basename(filePath));
 }
 //--------------------------------------------------FUNÇÕES EXTRAS
 
@@ -632,7 +636,7 @@ void DropboxServer::deleteFile(int socket, char* userId){
 
     //Remove o arquivo
     if(remove(filePath) < 0){
-        fprintf(stderr, "Socket %d - Errror deleting file \'%s\'\n", socket, filePath);
+        fprintf(stderr, "Socket %d - Error deleting file \'%s\'\n", socket, filePath);
         return;
     }
 
