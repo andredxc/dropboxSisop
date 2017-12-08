@@ -8,7 +8,9 @@
 #define MAXNAME 20
 #define MAXFILES 20
 
-#define SERVER_PORT 4000
+#define SERVER_PORT 4000 // Após alterações, usaremos o abaixo.
+#define SERVER_HOST_PORT_FILE "./server_host-port.txt" // ip route get 8.8.8.8 | awk '{print $NF; exit}' dá o ip no ubuntu
+
 #define SERVER_MAX_CLIENTES 20
 #define SERVER_BACKLOG 20
 
@@ -31,7 +33,13 @@ class DropboxServer{
     private:
         int _serverSocket;
         std::vector<CLIENT> _clients;
-        pthread_mutex_t _clientStructMutex;;
+        pthread_mutex_t _clientStructMutex;
+
+        //
+        std::list<std::pair<char*, char*> > _server_list; // lista de servidores por host e porta
+        std::list<std::pair<char*, char*>>::iterator _server_it; // iterador da lista
+        int _myIndex; // index do servidor no server_list
+        int _myID; // ID no algoritmo de seleção
 
     public:
         DropboxServer();
@@ -59,6 +67,18 @@ class DropboxServer{
         int findUserFile(char* userId, char* fileName);
         void deleteFile(int socket, char* userId);
         void listServer(int socket, char* userId);
+
+        // TODO 08/12 (Felipe Führ)
+        int initServerList(); // lista de servidores
+        int initMyIndex(); // adquire próprio índice na lista de servidores
+
+        int beginElection(); // começa eleição
+        int sendElection(); // manda mensagem de eleição à todos os elementos posteriores à ele na lista de servidores
+        int sendCoordinator(); // manda mensagem coordinator
+
+        // TODO data posterior
+        // Função que transfere alterações aos backups
+        // Função que transfere todo o servidor para o host e porta que conversam com o cliente
 
 };
 

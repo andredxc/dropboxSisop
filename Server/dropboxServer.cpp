@@ -832,3 +832,20 @@ void DropboxServer::closeConnection(int socket){
 }
 
 int DropboxServer::getSocket(){ return _serverSocket; }
+
+// adquire lista de servidores
+int initServerList()
+{
+    _server_list.push_back(0);
+
+}
+
+// adquire próprio índice na lista de servidores
+int initMyIndex()
+{
+    // pega localhost
+
+    // pega número da porta
+
+    // compara aos pares da server_list
+}
