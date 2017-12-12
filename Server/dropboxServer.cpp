@@ -266,12 +266,12 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create*/
 void DropboxServer::handleConnection(int* socket){
 
-	pthread_t comunicationThread;
+	  pthread_t comunicationThread;
     struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
 
     arg->socket = socket;
     arg->instance = this;
-	pthread_create(&comunicationThread, NULL, handleConnectionThread, arg);
+	  pthread_create(&comunicationThread, NULL, handleConnectionThread, arg);
 }
 
 /*Thread que realiza a comunicação entre o servidor e o cliente*/
