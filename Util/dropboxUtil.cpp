@@ -36,12 +36,12 @@ bool receiveExpectedInt(int socket, int message){
 
   	bzero(buffer, sizeof(buffer));
   	if(read(socket, buffer, sizeof(buffer)) < 0){
-  		  fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
-		    return false;
+  		fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
+		return false;
   	}
   	if(atoi(buffer) != message){
-  		  fprintf(stderr, "DropboxUtil - Int received wasn't expected (received: %d, expected: %d)\n", atoi(buffer), message);
-		    return false;
+  		fprintf(stderr, "DropboxUtil - Int received wasn't expected (received: %s(%d), expected: %s(%d))\n", getCPMessage(atoi(buffer)), atoi(buffer), getCPMessage(message), message);
+	    return false;
   	}
   	return true;
 }
@@ -153,4 +153,46 @@ time_t getMTimeValue(const char* filePath){
         return 0;
     }
     return statBuff.st_mtime;
+}
+
+/* Retorna a string correspondente ao código do protocolo de comunicação */
+const char* getCPMessage(int cpCode){
+
+    switch(cpCode){
+
+        case CP_SYNC_DIR_FOUND: return "CP_SYNC_DIR_FOUND";
+        case CP_SYNC_DIR_NOT_FOUND: return "CP_SYNC_DIR_NOT_FOUND";
+        case CP_LOGIN_SUCCESSFUL: return "CP_LOGIN_SUCCESSFUL";
+        case CP_LOGIN_FAILED: return "CP_LOGIN_FAILED";
+        case CP_CLIENT_SEND_FILE: return "CP_CLIENT_SEND_FILE";
+        case CP_CLIENT_SEND_FILE_ACK: return "CP_CLIENT_SEND_FILE_ACK";
+        case CP_CLIENT_SEND_FILE_SIZE_ACK: return "CP_CLIENT_SEND_FILE_SIZE_ACK";
+        case CP_CLIENT_END_CONNECTION: return "CP_CLIENT_END_CONNECTION";
+        case CP_SEND_FILE_COMPLETE: return "CP_SEND_FILE_COMPLETE";
+        case CP_FILE_PART_RECEIVED: return "CP_FILE_PART_RECEIVED";
+        case CP_SEND_FILE_COMPLETE_ACK: return "CP_SEND_FILE_COMPLETE_ACK";
+        case CP_SYNC_CLIENT: return "CP_SYNC_CLIENT";
+        case CP_SYNC_FILE_COMPUTED: return "CP_SYNC_FILE_COMPUTED";
+        case CP_SYNC_FILE_OK: return "CP_SYNC_FILE_OK";
+        case CP_SYNC_DOWNLOAD_FILE: return "CP_SYNC_DOWNLOAD_FILE";
+        case CP_SYNC_FILE_NOT_FOUND: return "CP_SYNC_FILE_NOT_FOUND";
+        case CP_CLIENT_GET_FILE: return "CP_CLIENT_GET_FILE";
+        case CP_CLIENT_GET_FILE_ACK: return "CP_CLIENT_GET_FILE_ACK";
+        case CP_CLIENT_GET_FILE_SIZE_ACK: return "CP_CLIENT_GET_FILE_SIZE_ACK";
+        case CP_CLIENT_GET_FILE_EXISTS: return "CP_CLIENT_GET_FILE_EXISTS";
+        case CP_CLIENT_GET_FILE_EXISTS_ACK: return "CP_CLIENT_GET_FILE_EXISTS_ACK";
+        case CP_LIST_SERVER: return "CP_LIST_SERVER";
+        case CP_LIST_SERVER_ACK: return "CP_LIST_SERVER_ACK";
+        case CP_LIST_SERVER_FILE_OK: return "CP_LIST_SERVER_FILE_OK";
+        case CP_CLIENT_DELETE_FILE: return "CP_CLIENT_DELETE_FILE";
+        case CP_CLIENT_DELETE_FILE_ACK: return "CP_CLIENT_DELETE_FILE_ACK";
+        case CP_CLIENT_GET_FILE_LOCK: return "CP_CLIENT_GET_FILE_LOCK";
+        case CP_CLIENT_GET_FILE_LOCK_ACK: return "CP_CLIENT_GET_FILE_LOCK_ACK";
+        case CP_CLIENT_GET_FILE_LOCK_SUCCESS: return "CP_CLIENT_GET_FILE_LOCK_SUCCESS";
+        case CP_CLIENT_GET_FILE_UNLOCK: return "CP_CLIENT_GET_FILE_UNLOCK";
+        case CP_CLIENT_GET_FILE_UNLOCK_ACK: return "CP_CLIENT_GET_FILE_UNLOCK_ACK";
+        case CP_CLIENT_GET_FILE_UNLOCK_SUCCESS: return "CP_CLIENT_GET_FILE_UNLOCK_SUCCESS";
+        case CP_CLIENT_GET_FILE_UNLOCK_FAIL: return "CP_CLIENT_GET_FILE_UNLOCK_FAIL";
+        default: return "UNKNOWN";
+    }
 }

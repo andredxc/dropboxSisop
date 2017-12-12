@@ -3,10 +3,13 @@
 
 #include <stdio.h>
 #include <vector>
+#include <list>
+#include <utility>
 #include "../Util/dropboxUtil.h"
 
 #define MAXNAME 20
 #define MAXFILES 20
+#define MAXUSERS 2
 
 #define SERVER_PORT 4000 // Após alterações, usaremos o abaixo.
 #define SERVER_HOST_PORT_FILE "./server_host-port.txt" // ip route get 8.8.8.8 | awk '{print $NF; exit}' dá o ip no ubuntu
@@ -19,10 +22,11 @@ typedef struct file_info{
     char extension[MAXNAME];
     char last_modified[MAXFILES];
     int size;
+    std::vector<int> lock;
 } FILE_INFO;
 
 typedef struct client{
-    int devices[2];
+    int devices[MAXUSERS];
     char userId[MAXNAME];
     FILE_INFO file_info[MAXFILES];
     int logged_in;
@@ -37,7 +41,7 @@ class DropboxServer{
 
         //
         std::list<std::pair<char*, char*> > _server_list; // lista de servidores por host e porta
-        std::list<std::pair<char*, char*>>::iterator _server_it; // iterador da lista
+        std::list<std::pair<char*, char*> >::iterator _server_it; // iterador da lista
         int _myIndex; // index do servidor no server_list
         int _myID; // ID no algoritmo de seleção
 
@@ -67,6 +71,8 @@ class DropboxServer{
         int findUserFile(char* userId, char* fileName);
         void deleteFile(int socket, char* userId);
         void listServer(int socket, char* userId);
+        void lockFile(int socket, char* userId);
+        void unlockFile(int socket, char* userId);
 
         // TODO 08/12 (Felipe Führ)
         int initServerList(); // lista de servidores

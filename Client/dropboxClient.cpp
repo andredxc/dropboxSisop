@@ -473,6 +473,7 @@ int DropboxClient::readComand(char* comandBuffer, int bufferSize){
 void* DropboxClient::fileWatcher(void* clientClass){
 
     int fileDesc, watchDesc, length, isRunning = 1;
+    bool done;
     struct inotify_event *event;
     char *eventPtr, syncDirPath[256], buffer[4098], curFilePath[256];
     DropboxClient* client = (DropboxClient*) clientClass;
@@ -486,7 +487,7 @@ void* DropboxClient::fileWatcher(void* clientClass){
         return NULL;
     }
 
-    watchDesc = inotify_add_watch(fileDesc, syncDirPath, IN_MODIFY | IN_CREATE | IN_DELETE);
+    watchDesc = inotify_add_watch(fileDesc, syncDirPath, IN_MODIFY | IN_CREATE | IN_DELETE | IN_OPEN | IN_CLOSE);
 
     if(watchDesc < 0){
         fprintf(stderr, "DropboxClient - Error adding watch to \'%s\'\n", syncDirPath);
@@ -508,22 +509,56 @@ void* DropboxClient::fileWatcher(void* clientClass){
                 //Itera sobre os eventos lidos
                 event = (struct inotify_event*) eventPtr;
 
-                if(event->name && (event->name[0] == '.'  || event->name[strlen(event->name)-1] == '~')){
-                    //Disconsidera arquivos ocultos
+                if(event->mask & IN_ISDIR){
+                    //Ignora diretórios
                 }
-                else if(event->mask & IN_MODIFY){
+                else if(event->name && (event->name[0] == '.'  || event->name[strlen(event->name)-1] == '~')){
+                    //Ignora arquivos ocultos
+                }
+                else if(event->mask & IN_OPEN){
+                    //O arquivo foi aberto
+                    /*
+                    fprintf(stderr, "O ARQUIVO %s FOI ABERTO\n", event->name);
+                    done = false;
+                    client->lockSocket();
+                    while(!done){
+                        //Tenta pegar o lock do arquivo até conseguir
+                        if(client->lockFile(basename(event->name)) == 0){
+                            //Lock concedido
+                            fprintf(stderr, "Got lock for file \'%s\'\n", event->name);
+                            client->unlockSocket();
+                            done = true;
+                        }
+                        else{
+                            fprintf(stderr, "Failed getting lock for file \'%s\'\n", event->name);
+                            client->unlockSocket();
+                            sleep(2);
+                            client->lockSocket();
+                            fprintf(stderr, "Trying again...\n");
+                        }
+                    }
+                    */
+                }
+                else if(event->mask & IN_CLOSE_WRITE){
+                    fprintf(stderr, "O ARQUIVO %s FOI MODIFICADO\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
                     client->send_file(curFilePath);
                     client->unlockSocket();
                 }
+                else if(event->mask & IN_CLOSE){
+                    //O arquivo foi aberto
+                    fprintf(stderr, "O ARQUIVO %s FOI IN_CLOSE\n", event->name);
+                }
                 else if(event->mask & IN_CREATE){
+                    fprintf(stderr, "O ARQUIVO %s FOI CRIADO\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
                     client->send_file(curFilePath);
                     client->unlockSocket();
                 }
                 else if(event->mask & IN_DELETE){
+                    fprintf(stderr, "O ARQUIVO %s FOI DELETADO\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
                     client->delete_file(curFilePath);
@@ -684,6 +719,71 @@ bool DropboxClient::sendUserId(char* userId){
 
     // default (outro erro)
     return false;
+}
+
+/*Entra na fila para entrar numa sessão crítica distribuída para editar um arquivo compartilhado*/
+int DropboxClient::lockFile(char* fileName){
+
+    char buffer[CP_MAX_MSG_SIZE];
+
+    //Envia ao servidor o comando para adquirir o lock do arquivo
+    if(!sendInteger(_socket, CP_CLIENT_GET_FILE_LOCK)){
+        fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_LOCK\n");
+        return -1;
+    }
+    //Espera pelo ack confirmando o pedido
+    if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_LOCK_ACK)){
+        fprintf(stderr, "DropboxClient - Error receiving CP_CLIENT_GET_FILE_LOCK_ACK from server\n");
+        return -1;
+    }
+    //Envia o nome do arquivo
+    bzero(buffer, sizeof(buffer));
+    strncpy(buffer, basename(fileName), sizeof(buffer));
+    if(write(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error sending filename \'%s\'\n", buffer);
+        return -1;
+    }
+    //Recebe resultado
+    if(read(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error receiving answer for file lock\n");
+        return -1;
+    }
+
+    if(atoi(buffer) == CP_CLIENT_GET_FILE_LOCK_SUCCESS){
+        return 0;
+    }
+    else{
+        return atoi(buffer);
+    }
+}
+
+/*Saí da fila para a edição do arquivo*/
+void DropboxClient::unlockFile(char* fileName){
+
+    char buffer[CP_MAX_MSG_SIZE];
+
+    //Envia ao servidor o comando para adquirir o lock do arquivo
+    if(!sendInteger(_socket, CP_CLIENT_GET_FILE_UNLOCK)){
+        fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_UNLOCK\n");
+        return;
+    }
+    //Espera pelo ack confirmando o pedido
+    if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_UNLOCK_ACK)){
+        fprintf(stderr, "DropboxClient - Error receiving CP_CLIENT_GET_FILE_UNLOCK_ACK from server\n");
+        return;
+    }
+    //Envia o nome do arquivo
+    bzero(buffer, sizeof(buffer));
+    strncpy(buffer, basename(fileName), sizeof(buffer));
+    if(write(_socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error sending filename \'%s\' at unlockFile()\n", buffer);
+        return;
+    }
+    //Espera pela mensagem de confirmação da remoção do lock
+    if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_UNLOCK_SUCCESS)){
+        fprintf(stderr, "DropboxClient - Error receiving CP_CLIENT_GET_FILE_UNLOCK_ACK from server\n");
+        return;
+    }
 }
 
 void DropboxClient::lockSocket(){

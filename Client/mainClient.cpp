@@ -45,8 +45,6 @@ int main(int argc, char** argv){
     // Conexão realizada com sucesso
     fprintf(stderr, "DropBox - Sistemas Operacionais 2 - Etapa I\n");
     fprintf(stderr, "André D. Carneiro, Lucas Sievert e Felipe Fuhr\n\n");
-    // Define o nome de usuário
-    // client.setUserId(argv[1]);
 
     //Cria a thread que verifica por alterações nos arquivos
     snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, client.getUserId());

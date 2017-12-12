@@ -39,6 +39,8 @@ class DropboxClient{
         bool getIsConnected();
         char* getUserId();
         void setUserId(char* userId);
+        int lockFile(char* fileName);
+        void unlockFile(char* fileName);
 
         void lockSocket();
         void unlockSocket();

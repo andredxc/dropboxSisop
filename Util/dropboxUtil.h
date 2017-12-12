@@ -42,6 +42,15 @@
 #define CP_CLIENT_DELETE_FILE           26
 #define CP_CLIENT_DELETE_FILE_ACK       27
 
+#define CP_CLIENT_GET_FILE_LOCK         28
+#define CP_CLIENT_GET_FILE_LOCK_ACK     29
+#define CP_CLIENT_GET_FILE_LOCK_SUCCESS 30
+
+#define CP_CLIENT_GET_FILE_UNLOCK       31
+#define CP_CLIENT_GET_FILE_UNLOCK_ACK   32
+#define CP_CLIENT_GET_FILE_UNLOCK_SUCCESS 33
+#define CP_CLIENT_GET_FILE_UNLOCK_FAIL  34
+
 #define CP_MAX_MSG_SIZE  				256
 
 //Outras constantes
@@ -60,5 +69,6 @@ void getFileSize(const char* filePath, int* buffer);
 void getFileInfo(const char* filePath, struct file_info *info);
 time_t convertTimeString(const char* timeString);
 time_t getMTimeValue(const char* filePath);
+const char* getCPMessage(int cpCode);
 
 #endif

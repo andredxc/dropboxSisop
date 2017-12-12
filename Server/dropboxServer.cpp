@@ -365,6 +365,12 @@ void* DropboxServer::handleConnectionThread(void* args){
                 case CP_LIST_SERVER:
                     server->listServer(socket, userId);
                     break;
+                case CP_CLIENT_GET_FILE_LOCK:
+                    server->lockFile(socket, userId);
+                    break;
+                case CP_CLIENT_GET_FILE_UNLOCK:
+                    server->unlockFile(socket, userId);
+                    break;
                 default:
                     fprintf(stderr, "Socket %d - Unrecognized message %d\n", socket, atoi(receiveBuffer));
                     break;
@@ -775,6 +781,122 @@ void DropboxServer::listServer(int socket, char* userId){
     closedir(localSyncDir);
 }
 
+/* Faz a exclusão mútua distrinuída para um arquivo */
+void DropboxServer::lockFile(int socket, char* userId){
+
+    char buffer[CP_MAX_MSG_SIZE];
+    int userIndex, fileIndex, socketIndex;
+    uint i;
+
+    //Envia o ack para o pedido
+    if(!sendInteger(socket, CP_CLIENT_GET_FILE_LOCK_ACK)){
+        fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_LOCK_ACK\n");
+        return;
+    }
+    //Recebe o nome do arquivo
+    bzero(buffer, sizeof(buffer));
+    if(read(socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "Socket %d - Error receiving name of file to be locked\n", socket);
+        return;
+    }
+    //Executa o algoritmo do token
+    pthread_mutex_lock(&_clientStructMutex);
+    userIndex = findUserIndex(userId);
+    fileIndex = findUserFile(userId, basename(buffer));
+    //Verifica se os índices encontrados são válidos
+    if(userIndex < 0 || fileIndex < 0){
+        fprintf(stderr, "Socket %d - Error finding user \'%s\' or file \'%s\'\n", socket, userId, basename(buffer));
+        pthread_mutex_unlock(&_clientStructMutex);
+        return;
+    }
+    //Verifica se o cliente está na lista de locks
+    socketIndex = -1;
+    for(i = 0; i < _clients.at(userIndex).file_info[fileIndex].lock.size(); i++){
+        if(_clients.at(userIndex).file_info[fileIndex].lock.at(i) == socket){
+            socketIndex = i;
+        }
+    }
+    //Verifica se o cliente deve ser adicionado à lista
+    if(socketIndex < 0){
+        //O cliente não se encontra na lista, deve ser inserido
+        _clients.at(userIndex).file_info[fileIndex].lock.push_back(socket);
+    }
+    //Verifica a posição do cliente na lista
+    if(_clients.at(userIndex).file_info[fileIndex].lock.at(0) == socket){
+        //O cliente atual é o primeiro da lista, envia mensagem de sucesso
+        if(!sendInteger(socket, CP_CLIENT_GET_FILE_LOCK_SUCCESS)){
+            fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_LOCK_SUCCESS\n");
+            pthread_mutex_unlock(&_clientStructMutex);
+            return;
+        }
+    }
+    else{
+        //O cliente atual deve esperar o lock ser liberado, envia o tamanho da lista
+        if(!sendInteger(socket, _clients.at(userIndex).file_info[fileIndex].lock.size())){
+            fprintf(stderr, "DropboxClient - Error sending lock list size\n");
+            pthread_mutex_unlock(&_clientStructMutex);
+            return;
+        }
+    }
+    pthread_mutex_unlock(&_clientStructMutex);
+}
+
+/* Libera um arquivo da exclusão mútua distribuída */
+void DropboxServer::unlockFile(int socket, char* userId){
+
+    uint i;
+    int userIndex, fileIndex, socketIndex;
+    char buffer[CP_MAX_MSG_SIZE];
+
+    //Envia o ack para o pedido
+    if(!sendInteger(socket, CP_CLIENT_GET_FILE_UNLOCK_ACK)){
+        fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_UNLOCK_ACK\n");
+        return;
+    }
+    //Recebe o nome do arquivo
+    bzero(buffer, sizeof(buffer));
+    if(read(socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "Socket %d - Error receiving name of file to be unlocked\n", socket);
+        return;
+    }
+    //Procura pelo arquivo nas estruturas do servidor
+    pthread_mutex_lock(&_clientStructMutex);
+    userIndex = findUserIndex(userId);
+    fileIndex = findUserFile(userId, basename(buffer));
+    //Verifica se os índices encontrados são válidos
+    if(userIndex < 0 || fileIndex < 0){
+        fprintf(stderr, "Socket %d - Error finding user \'%s\' or file \'%s\' at unlockFile\n", socket, userId, basename(buffer));
+        pthread_mutex_unlock(&_clientStructMutex);
+        return;
+    }
+    //Remove o lock do arquivo
+    socketIndex = -1;
+    for(i = 0; i < _clients.at(userIndex).file_info[fileIndex].lock.size(); i++){
+        if(_clients.at(userIndex).file_info[fileIndex].lock.at(i) == socket){
+            socketIndex = i;
+        }
+    }
+    if(socketIndex >= 0){
+        _clients.at(userIndex).file_info[fileIndex].lock.erase(_clients.at(userIndex).file_info[fileIndex].lock.begin() + socketIndex);
+        fprintf(stderr, "Socket %d - Lock removed successfully from file \'%s\'\n", socket, basename(buffer));
+        //Envia mensagem de confirmação da remoção do lock
+        if(!sendInteger(socket, CP_CLIENT_GET_FILE_UNLOCK_SUCCESS)){
+            fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_UNLOCK_SUCCESS\n");
+            pthread_mutex_unlock(&_clientStructMutex);
+            return;
+        }
+    }
+    else{
+        //Erro na busca do lock
+        if(!sendInteger(socket, CP_CLIENT_GET_FILE_UNLOCK_FAIL)){
+            fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_UNLOCK_FAIL\n");
+            pthread_mutex_unlock(&_clientStructMutex);
+            return;
+        }
+    }
+    pthread_mutex_unlock(&_clientStructMutex);
+}
+
 /*Faz liste(), accept() e retorna o socket de comunicação*/
 int DropboxServer::listenAndAccept(){
 
@@ -834,9 +956,10 @@ void DropboxServer::closeConnection(int socket){
 int DropboxServer::getSocket(){ return _serverSocket; }
 
 // adquire lista de servidores
-int initServerList()
+int DropboxServer::initServerList()
 {
-    _server_list.push_back(0);
+    //_server_list.push_back(0);
+    //TODO: Erro
 
 }
 
