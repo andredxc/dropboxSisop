@@ -8,7 +8,7 @@
 #define MAXNAME 20
 #define MAXFILES 20
 
-#define PROXY_PORT 4000 // Após alterações, usaremos o abaixo.
+#define PROXY_PORT 4001 // Após alterações, usaremos o abaixo.
 #define SERVER_HOST_PORT_FILE "./server_host-port.txt" // ip route get 8.8.8.8 | awk '{print $NF; exit}' dá o ip no ubuntu
 
 #define SERVER_MAX_CLIENTES 20
@@ -39,7 +39,6 @@ class ClientProxy{
 
         // Manda informações ao servidor
         int connect_server(char* host, int port);
-
 
     private:
 

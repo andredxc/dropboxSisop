@@ -11,7 +11,7 @@
 #define MAXFILES 20
 #define MAXUSERS 2
 
-#define SERVER_PORT 4001 // Após alterações, usaremos o abaixo.
+#define SERVER_PORT 4000 // Após alterações, usaremos o abaixo.
 #define SERVER_HOST_PORT_FILE "./server_host-port.txt" // ip route get 8.8.8.8 | awk '{print $NF; exit}' dá o ip no ubuntu
 
 #define SERVER_MAX_CLIENTES 20
