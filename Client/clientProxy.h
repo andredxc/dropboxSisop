@@ -14,20 +14,6 @@
 #define SERVER_MAX_CLIENTES 20
 #define SERVER_BACKLOG 20
 
-typedef struct file_info{
-    char name[MAXNAME];
-    char extension[MAXNAME];
-    char last_modified[MAXFILES];
-    int size;
-} FILE_INFO;
-
-typedef struct client{
-    int devices[2];
-    char userId[MAXNAME];
-    FILE_INFO file_info[MAXFILES];
-    int logged_in;
-} CLIENT;
-
 class ClientProxy{
 
     private:
@@ -44,11 +30,12 @@ class ClientProxy{
 
     public:
         // Recebe informações do cliente
-        ClientProxy();
+        ClientProxy(){ };
         int initialize_clientConnection();
         int listenAndAccept();
-        void handle_clientConnection(int* socket);
+        int handle_clientConnection(int* socket);
         int get_clientSocket();
+        int send_message(int message);
 
         // Manda informações ao servidor
         int connect_server(char* host, int port);

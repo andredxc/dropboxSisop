@@ -1,3 +1,22 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/inotify.h>
+#include <pthread.h>
+#include <netdb.h>
+#include <sys/stat.h>
+#include <iostream>
+#include <arpa/inet.h>
+#include <dirent.h>
+#include <string>
+#include <time.h>
+#include "clientProxy.h"
+#include "../Util/dropboxUtil.h"
+
 int ClientProxy::initialize_clientConnection(){
 
     struct sockaddr_in proxyAddress;
@@ -22,7 +41,7 @@ int ClientProxy::initialize_clientConnection(){
     }
 
     //Recupera as estruturas do cliente
-    recoverData();
+    //recoverData();
 
     return _clientSocket;
 }
@@ -46,27 +65,27 @@ int ClientProxy::listenAndAccept(){
 }
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
-void ClientProxy::handle_connection(int* socket){
+int ClientProxy::handle_clientConnection(int* socket){
 
     char buffer[CP_MAX_MSG_SIZE], filePath[512];
 
     pthread_t comunicationThread;
-    struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
+    // struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
 
-    if(read(socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
-        return;
-    }
-    fileSize = atoi(buffer);
-    if(!sendInteger(socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
-        fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
-        return;
-    }
-    std::cout << read;
-    return socket;
+    //if(read(socket, buffer, sizeof(buffer)) < 0){
+    //    fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
+    //    return;
+    //}
+    //fileSize = atoi(buffer);
+    //if(!sendInteger(socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
+    //    fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
+    //    return;
+    //}
+    std::cout << socket;
+    return -1;//socket;
 }
 
-int DropboxServer::get_clientSocket(){ return _serverSocket; }
+int ClientProxy::get_clientSocket(){ return _serverSocket; }
 
 /*Estabelece a conexão entre host (endereço servidor) e port (porta da conexão)*/
 int ClientProxy::connect_server(char* host, int port){
@@ -106,15 +125,16 @@ int ClientProxy::connect_server(char* host, int port){
 int ClientProxy::send_message(int message)
 {
     // Envia o tamanho do arquivo
-    if(!sendInteger(_socket, fileSize)){
-        fprintf(stderr, "DropboxClient - Error sending file size\n");
-        fclose(file);
-        return;
-    }
+    //if(!sendInteger(_socket, fileSize)){
+    //    fprintf(stderr, "DropboxClient - Error sending file size\n");
+    //    fclose(file);
+    //    return;
+    //}
 
-    if(!receiveExpectedInt(_socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
-        fprintf(stderr, "DropboxClient - Error receiving size confirmation from server\n");
-        fclose(file);
-        return;
-    }
+  //  if(!receiveExpectedInt(_socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
+    //    fprintf(stderr, "DropboxClient - Error receiving size confirmation from server\n");
+    //    fclose(file);
+    //    return;
+    //}
+    return -1;
 }
