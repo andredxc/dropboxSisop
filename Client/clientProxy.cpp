@@ -17,6 +17,13 @@
 #include "clientProxy.h"
 #include "../Util/dropboxUtil.h"
 
+
+/*Utilizada na criação da thread pois a função tem que ser static*/
+typedef struct classAndSocket{
+    ClientProxy* instance;
+    int* socket;
+};
+
 int ClientProxy::initialize_clientConnection(){
 
     struct sockaddr_in proxyAddress;
@@ -65,24 +72,43 @@ int ClientProxy::listenAndAccept(){
 }
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
-int ClientProxy::handle_clientConnection(int* socket){
+int ClientProxy::handle_clientConnection(int socket){
 
     char buffer[CP_MAX_MSG_SIZE], filePath[512];
 
     pthread_t comunicationThread;
-    // struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
+    struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
 
-    //if(read(socket, buffer, sizeof(buffer)) < 0){
-    //    fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
-    //    return;
-    //}
-    //fileSize = atoi(buffer);
-    //if(!sendInteger(socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
-    //    fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
-    //    return;
-    //}
-    std::cout << socket;
-    return -1;//socket;
+    // Recebe informação do cliente
+    if(read(socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "Socket %d - Error receiving information from Client.\n", socket);
+        return -1;
+    }
+    fprintf(stderr, "\n Cliente: %s\n", buffer);
+    if(write(_serverSocket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error receiving information to Server.\n");
+        return -1;
+    }
+}
+
+/*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
+int ClientProxy::handle_serverConnection(int socket){
+
+    char buffer[CP_MAX_MSG_SIZE], filePath[512];
+
+    pthread_t comunicationThread;
+    struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
+
+    // Recebe informação do cliente
+    if(read(_serverSocket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "Socket %d - Error receiving information from Server.\n", socket);
+        return -1;
+    }
+    fprintf(stderr, "\n Server: %s\n", buffer);
+    if(write(socket, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "DropboxClient - Error sending information to Client.\n");
+        return -1;
+    }
 }
 
 int ClientProxy::get_clientSocket(){ return _serverSocket; }

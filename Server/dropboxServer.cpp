@@ -13,7 +13,7 @@
 #include "../Util/dropboxUtil.h"
 
 /*Utilizada na criação da thread pois a função tem que ser static*/
-struct classAndSocket{
+typedef struct classAndSocket{
     DropboxServer* instance;
     int* socket;
 };

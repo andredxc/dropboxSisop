@@ -51,6 +51,8 @@
 #define CP_CLIENT_GET_FILE_UNLOCK_SUCCESS 33
 #define CP_CLIENT_GET_FILE_UNLOCK_FAIL  34
 
+#define CP_CLIENT_SEND_MESSAGE_ACK  35
+
 #define CP_MAX_MSG_SIZE  				256
 
 //Outras constantes

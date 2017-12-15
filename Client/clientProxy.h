@@ -33,7 +33,8 @@ class ClientProxy{
         ClientProxy(){ };
         int initialize_clientConnection();
         int listenAndAccept();
-        int handle_clientConnection(int* socket);
+        int handle_clientConnection(int socket);
+        int handle_serverConnection(int socket);
         int get_clientSocket();
         int send_message(int message);
 

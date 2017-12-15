@@ -712,7 +712,7 @@ bool DropboxClient::sendUserId(char* userId){
             return false;
 	      }
   	    else{
-    		    fprintf(stderr, "DropboxClient - Internal error during sign in\n");
+    		    fprintf(stderr, "DropboxClient - Internal error during sign in: %d\n", atoi(buffer));
   		      return false;
         }
   	}
