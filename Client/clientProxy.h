@@ -54,11 +54,8 @@ class ClientProxy{
 
         int getServerSocket();
         int getClientSocket();
-        pthread_t *clientWatcher();
-        pthread_t *serverWatcher();
-        static void* handle_clientConnection(void *arg);
-        static void* handle_serverConnection(void *arg);
-
+        pthread_t *communicationWatcher();
+        static void* handle_connection(void *arg);
         void lock_socket();
         void unlock_socket();
 

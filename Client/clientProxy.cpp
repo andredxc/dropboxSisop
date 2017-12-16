@@ -60,7 +60,6 @@ int ClientProxy::listenAndAccept(){
 
     clientLength = sizeof(struct sockaddr_in);
     listen(_clientSocket, SERVER_BACKLOG);
-    fprintf(stderr, "a%d\n", _clientSocket);
 
     while((newSocket = accept(_clientSocket, (struct sockaddr*) &clientAddress, &clientLength)) < 0){ }
     fcntl(newSocket, F_SETFL, O_NONBLOCK); /* Transforma em não bloqueante*/
@@ -68,20 +67,14 @@ int ClientProxy::listenAndAccept(){
     return newSocket;
 }
 
-pthread_t *ClientProxy::clientWatcher(){
+pthread_t *ClientProxy::communicationWatcher(){
     pthread_t *messagefromClient = (pthread_t *) malloc(sizeof(pthread_t));
-    pthread_create(messagefromClient, NULL, handle_clientConnection, (void *)this);
+    pthread_create(messagefromClient, NULL, handle_connection, (void *)this);
     return messagefromClient;
 }
 
-pthread_t *ClientProxy::serverWatcher(){
-    pthread_t *messagefromServer = (pthread_t *) malloc(sizeof(pthread_t));
-    pthread_create(messagefromServer, NULL, handle_serverConnection, (void*)this);
-    return messagefromServer;
-}
-
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
-void* ClientProxy::handle_clientConnection(void *arg){
+void* ClientProxy::handle_connection(void *arg){
 
     char buffer[CP_MAX_MSG_SIZE], filePath[512];
     int isRunning = 1;
@@ -92,47 +85,29 @@ void* ClientProxy::handle_clientConnection(void *arg){
     while(isRunning){
         proxy->lock_socket();
         // Recebe informação do cliente
-        fprintf(stderr, "%s: %d\n", "esperando Cliente1", comunicationSocket);
 
         int iMode = 1;
         fcntl(comunicationSocket, F_SETFL, O_NONBLOCK); /* Transforma em não bloqueante*/
         //Espera por conexões do cliente e dispara threads
-        fprintf(stderr, "%s: %d\n", "esperando Cliente2", comunicationSocket);
         if(recv(comunicationSocket, buffer, sizeof(buffer), 0) < 0){ }
         else{
-            fprintf(stderr, "\n Cliente: %s\n", buffer);
             if(write(proxy->getServerSocket(), buffer, sizeof(buffer)) < 0){
                 fprintf(stderr, "DropboxClient - Error receiving information to Server.\n");
             }
         }
-        fprintf(stderr, "%s: %d\n", "não mais Cliente", comunicationSocket);
         proxy->unlock_socket();
-    }
-}
 
-/*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
-void* ClientProxy::handle_serverConnection(void *arg){
-
-    char buffer[CP_MAX_MSG_SIZE], filePath[512];
-    int isRunning = 1;
-    ClientProxy *proxy = (ClientProxy*) arg;
-    int comunicationSocket;
-
-    //Espera por conexões do cliente e dispara threads
-    while(isRunning){
         proxy->lock_socket();
-        fprintf(stderr, "%s: %d\n", "esperando Servidor", comunicationSocket);
         if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) < 0){ }
         else{
-            fprintf(stderr, "\n Server: %s\n", buffer);
             if(write(comunicationSocket, buffer, sizeof(buffer)) < 0){
                 fprintf(stderr, "DropboxClient - Error sending information to Client.\n");
             }
         }
-        fprintf(stderr, "%s: %d\n", "não mais Servidor", comunicationSocket);
         proxy->unlock_socket();
     }
 }
+
 
 void ClientProxy::lock_socket(){ pthread_mutex_lock(&_Mutex); }
 void ClientProxy::unlock_socket(){ pthread_mutex_unlock(&_Mutex); }
