@@ -154,6 +154,7 @@ void* ClientProxy::handle_serverConnection(void *arg){
         if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
         {
             fprintf(stderr, "ClientProxy - Trying to connect to Server.\n");
+            proxy->connect_server("localhost", 4000);
         }
         //TODO: proxy->check_socket(communicationSocket);
         else if(write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
