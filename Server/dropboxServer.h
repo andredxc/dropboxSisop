@@ -5,6 +5,10 @@
 #include <vector>
 #include <list>
 #include <utility>
+#include <iostream>
+#include <string>
+#include <list>
+
 #include "../Util/dropboxUtil.h"
 
 #define MAXNAME 20
@@ -52,7 +56,7 @@ class DropboxServer{
         void receive_file(int socket, char* userId, char* file);
         void send_file(int socket, char* userId, char* file);
     //Funções extras
-        int initialize();
+        int initialize(int port);
 	      void handleConnection(int* socket);
         int listenAndAccept();
         void closeConnection(int socket);

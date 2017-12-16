@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include "clientProxy.h"
 
-int main(int argc, char** argv){
+int main(){
 
     ClientProxy proxy;
     int isRunning=1;

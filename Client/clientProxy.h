@@ -33,11 +33,15 @@ class ClientProxy{
         int _serverThreadState;
         pthread_mutex_t _Mutex;
 
+        std::list<std::pair<std::string, int> > _server_list; // lista a receber lista de servidores
+        std::list<std::pair<std::string, int> >::iterator _it; // iterador da lista, indica servidor conectado
+
     public:
         // Recebe informações do cliente
         ClientProxy(){
             _clientThreadState = 0;
             _serverThreadState = 0;
+            _server_list = get_serverList();
         };
         int initialize_clientConnection();
         int listenAndAccept();

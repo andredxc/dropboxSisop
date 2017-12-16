@@ -7,6 +7,7 @@
 #define MAXNAME 20
 
 //Definição do protocolo de comunicação entre cliente e servidor
+
 #define CP_SYNC_DIR_FOUND       		1
 #define CP_SYNC_DIR_NOT_FOUND   		2
 
@@ -58,6 +59,7 @@
 //Outras constantes
 #define CLIENT_SYNC_DIR_PATH    "./files/clientFiles/"
 #define SERVER_SYNC_DIR_PATH    "./files/serverFiles/"
+#define SERVER_LIST_TXT "./server_host_port.txt"
 
 bool sendInteger(int socket, int message);
 bool receiveExpectedInt(int socket, int message);
@@ -72,5 +74,6 @@ void getFileInfo(const char* filePath, struct file_info *info);
 time_t convertTimeString(const char* timeString);
 time_t getMTimeValue(const char* filePath);
 const char* getCPMessage(int cpCode);
+std::list<std::pair<std::string, int> > get_serverList();
 
 #endif

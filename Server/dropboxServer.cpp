@@ -910,7 +910,7 @@ int DropboxServer::listenAndAccept(){
 }
 
 /*Faz o socket() e bind() do servidor, retorna -1 ou o valor do socket*/
-int DropboxServer::initialize(){
+int DropboxServer::initialize(int port){
 
     struct sockaddr_in serverAddress;
 
@@ -923,13 +923,13 @@ int DropboxServer::initialize(){
 
     //Inicializa struct do socket
     serverAddress.sin_family = AF_INET; // communication domain do socket criado
-    serverAddress.sin_port = htons(SERVER_PORT); // porta do socket
+    serverAddress.sin_port = htons(port); // porta do socket
     serverAddress.sin_addr.s_addr = INADDR_ANY; // container genérico
     bzero(&(serverAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
                                          // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
     //Faz o bind (atribui identidade ao socket)
     if(bind(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
-        printf("DropboxServer - Error binding server\n");
+        printf("DropboxServer - Error binding server :: Port %d\n", port);
         return -1;
     }
 

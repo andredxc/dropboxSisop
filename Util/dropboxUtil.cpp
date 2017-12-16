@@ -13,6 +13,10 @@
 #include <pthread.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <iostream>
+#include <list>
+#include <fstream>
+#include <string>
 
 #include "dropboxUtil.h"
 
@@ -195,4 +199,32 @@ const char* getCPMessage(int cpCode){
         case CP_CLIENT_GET_FILE_UNLOCK_FAIL: return "CP_CLIENT_GET_FILE_UNLOCK_FAIL";
         default: return "UNKNOWN";
     }
+}
+
+std::list<std::pair<std::string, int> > get_serverList()
+{
+    std::list<std::pair<std::string, int> > server_list; // lista a receber lista de servidores
+    std::list<std::pair<std::string, int> >::iterator it; // iterador da lista
+    std::string host;
+    int port;
+
+    std::ifstream infile(SERVER_LIST_TXT);
+
+    if (infile) { }
+    else {
+        std::cerr << "Couldn't open\n\n";
+    }
+
+    while (infile >> host >> port)
+    {
+         server_list.push_back(std::make_pair(host, port));
+         // std::cerr << host << " " << port << "\n";
+    }
+    //for(it = server_list.begin(); it != server_list.end(); it++)
+    //{
+    //     std::cerr << it->first << " " << it->second << "\n";
+    //}
+    //std::cerr << "\n";
+
+    return server_list;
 }

@@ -7,13 +7,16 @@
 #include <netinet/in.h>
 #include "dropboxServer.h"
 
-int main(){
+int main(int argc, char** argv){
 
     DropboxServer server;
     int comunicationSocket, isRunning=1;
 
     //Inicialização do servidor
-    if(server.initialize() < 0){
+    int argument = -1;
+    if(argc > 1){ argument = atoi(argv[1]);}
+    else { argument = SERVER_PORT;}
+    if(server.initialize(argument) < 0){
         return -1;
     }
 

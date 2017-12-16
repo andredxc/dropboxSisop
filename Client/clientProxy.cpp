@@ -73,6 +73,25 @@ pthread_t *ClientProxy::communicationWatcher(){
     return messagefromClient;
 }
 
+/*
+// Vê se socket ainda está ativo
+pthread_t *ClientProxy::check_socket(){
+
+ FUTURA FUNÇÃO CHECK_SOCKET_STILLFUNCTIONAL OU ALGO DO GÊNERO
+if (retval != 0) {
+    /* there was a problem getting the error code
+    fprintf(stderr, "error getting socket error code: %s\n", strerror(retval));
+    return;
+}
+
+if (error != 0) {
+    /* socket has a non zero error status
+    fprintf(stderr, "socket error: %s\n", strerror(error));
+}
+*/
+// TODO: if not functional, comunicationSocket = proxy_listenAndAccept;
+
+
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_connection(void *arg){
 
@@ -84,22 +103,23 @@ void* ClientProxy::handle_connection(void *arg){
 
     while(isRunning){
         proxy->lock_socket();
-        // Recebe informação do cliente
-
-        int iMode = 1;
-        fcntl(comunicationSocket, F_SETFL, O_NONBLOCK); /* Transforma em não bloqueante*/
-        //Espera por conexões do cliente e dispara threads
+        // Recebe informação do cliente e manda ao servidor
+        //TODO: proxy->check_socket(comunicationSocket);
         if(recv(comunicationSocket, buffer, sizeof(buffer), 0) < 0){ }
         else{
+            //TODO: proxy->check_socket(getServerSocket());
             if(write(proxy->getServerSocket(), buffer, sizeof(buffer)) < 0){
-                fprintf(stderr, "DropboxClient - Error receiving information to Server.\n");
+                fprintf(stderr, "DropboxClient - Error receiving information from Client to Server.\n");
             }
         }
         proxy->unlock_socket();
 
+        // Recebe informação do servidor e manda ao cliente
         proxy->lock_socket();
+        //TODO: proxy->check_socket(getServerSocket());
         if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) < 0){ }
         else{
+            //TODO: proxy->check_socket(comunicationSocket);
             if(write(comunicationSocket, buffer, sizeof(buffer)) < 0){
                 fprintf(stderr, "DropboxClient - Error sending information to Client.\n");
             }
@@ -170,21 +190,4 @@ int ClientProxy::connect_server(char* host, int port){
     while(connect(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){    }
     _isConnected = true;
     return _serverSocket;
-}
-
-int ClientProxy::send_message(int message)
-{
-    // Envia o tamanho do arquivo
-    //if(!sendInteger(_socket, fileSize)){
-    //    fprintf(stderr, "DropboxClient - Error sending file size\n");
-    //    fclose(file);
-    //    return;
-    //}
-
-  //  if(!receiveExpectedInt(_socket, CP_CLIENT_SEND_FILE_SIZE_ACK)){
-    //    fprintf(stderr, "DropboxClient - Error receiving size confirmation from server\n");
-    //    fclose(file);
-    //    return;
-    //}
-    return -1;
 }
