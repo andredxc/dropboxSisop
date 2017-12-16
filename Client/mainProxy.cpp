@@ -14,7 +14,7 @@ int main(int argc, char** argv){
     int isRunning=1;
 
     //Inicialização do socket de comunicação com o cliente
-    if(proxy.initialize_serverConnection() < 0){
+    if(proxy.initialize_clientConnection() < 0){
         return -1;
     }
 
@@ -32,13 +32,13 @@ int main(int argc, char** argv){
     // TODO: if checkServer == 1 else abaixo
     // Recebe informação do Cliente e manda ao Servidor
     pthread_t *clientThread;
-    clientThread = proxy.clientWatcher();
+    //clientThread = proxy.clientWatcher();
 
     // Recebe informação do Servidor e manda ao cliente
     pthread_t *serverThread;
     serverThread = proxy.serverWatcher();
 
-    pthread_join(*clientThread, NULL);
+    //pthread_join(*clientThread, NULL);
     pthread_join(*serverThread, NULL);
 
     close(proxy.get_clientSocket());

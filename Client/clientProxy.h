@@ -31,8 +31,7 @@ class ClientProxy{
         // Gere se thread está disponível
         int _clientThreadState;
         int _serverThreadState;
-        pthread_mutex_t _clientMutex;
-        pthread_mutex_t _serverMutex;
+        pthread_mutex_t _Mutex;
 
     public:
         // Recebe informações do cliente
@@ -40,7 +39,7 @@ class ClientProxy{
             _clientThreadState = 0;
             _serverThreadState = 0;
         };
-        int initialize_serverConnection();
+        int initialize_clientConnection();
         int listenAndAccept();
         int get_clientSocket();
         int send_message(int message);
@@ -59,10 +58,9 @@ class ClientProxy{
         pthread_t *serverWatcher();
         static void* handle_clientConnection(void *arg);
         static void* handle_serverConnection(void *arg);
-        void lock_serverSocket();
-        void unlock_serverSocket();
-        void lock_clientSocket();
-        void unlock_clientSocket();
+
+        void lock_socket();
+        void unlock_socket();
 
     private:
 
