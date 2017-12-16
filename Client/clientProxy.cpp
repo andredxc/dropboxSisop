@@ -17,20 +17,13 @@
 #include "clientProxy.h"
 #include "../Util/dropboxUtil.h"
 
-
-/*Utilizada na criação da thread pois a função tem que ser static*/
-typedef struct classAndSocket{
-    ClientProxy* instance;
-    int* socket;
-};
-
-int ClientProxy::initialize_clientConnection(){
+int ClientProxy::initialize_serverConnection(){
 
     struct sockaddr_in proxyAddress;
 
-    //Inicializa socket que recebe dados do cliente (caso não consiga, interrompe execução e retorna erro)
-    _clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if(_clientSocket == -1){
+    //Inicializa socket que recebe manda dados ao cliente (caso não consiga, interrompe execução e retorna erro)
+    _serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if(_serverSocket == -1){
         printf("ClientProxy - Error initializing socket\n");
         return -1;
     }
@@ -42,15 +35,12 @@ int ClientProxy::initialize_clientConnection(){
     bzero(&(proxyAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
                                          // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
     //Faz o bind (atribui identidade ao socket)
-    if(bind(_clientSocket, (struct sockaddr*) &proxyAddress, sizeof(proxyAddress)) < 0){
+    if(bind(_serverSocket, (struct sockaddr*) &proxyAddress, sizeof(proxyAddress)) < 0){
         printf("ClientProxy - Error binding server\n");
         return -1;
     }
 
-    //Recupera as estruturas do cliente
-    //recoverData();
-
-    return _clientSocket;
+    return _serverSocket;
 }
 
 /*Faz liste(), accept() e retorna o socket de comunicação*/
@@ -62,53 +52,106 @@ int ClientProxy::listenAndAccept(){
 
     clientLength = sizeof(struct sockaddr_in);
     listen(_clientSocket, SERVER_BACKLOG);
+    fprintf(stderr, "a%d\n", _clientSocket);
     newSocket = accept(_clientSocket, (struct sockaddr*) &clientAddress, &clientLength);
 
     if(newSocket == -1){
         printf("ClientProxy - Error accepting connection\n");
     }
-
     return newSocket;
 }
 
+pthread_t *ClientProxy::clientWatcher(){
+    pthread_t *messagefromClient = (pthread_t *) malloc(sizeof(pthread_t));
+    pthread_create(messagefromClient, NULL, handle_clientConnection, (void *)this);
+    return messagefromClient;
+}
+
+pthread_t *ClientProxy::serverWatcher(){
+    pthread_t *messagefromServer = (pthread_t *) malloc(sizeof(pthread_t));
+    pthread_create(messagefromServer, NULL, handle_serverConnection, (void*)this);
+    return messagefromServer;
+}
+
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
-int ClientProxy::handle_clientConnection(int socket){
+void* ClientProxy::handle_clientConnection(void *arg){
 
     char buffer[CP_MAX_MSG_SIZE], filePath[512];
-
-    pthread_t comunicationThread;
-    struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
+    int isRunning = 1;
+    ClientProxy *proxy = (ClientProxy*) arg;
+    int comunicationSocket;
 
     // Recebe informação do cliente
-    if(read(socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving information from Client.\n", socket);
-        return -1;
-    }
-    fprintf(stderr, "\n Cliente: %s\n", buffer);
-    if(write(_serverSocket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "DropboxClient - Error receiving information to Server.\n");
-        return -1;
+    while(isRunning)
+    {
+        comunicationSocket = proxy->listenAndAccept();
+        //Espera por conexões do cliente e dispara threads
+        fprintf(stderr, "%s\n", "esperando Cliente");
+        fprintf(stderr, "%s\n", "esperando Cliente");
+        if(read(comunicationSocket, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "Socket %d - Error receiving information from Client.\n", *socket);
+        }
+        else{
+            fprintf(stderr, "\n Cliente: %s\n", buffer);
+            if(write(proxy->getServerSocket(), buffer, sizeof(buffer)) < 0){
+                fprintf(stderr, "DropboxClient - Error receiving information to Server.\n");
+            }
+        }
     }
 }
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
-int ClientProxy::handle_serverConnection(int socket){
+void* ClientProxy::handle_serverConnection(void *arg){
 
     char buffer[CP_MAX_MSG_SIZE], filePath[512];
-
-    pthread_t comunicationThread;
-    struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
+    int isRunning = 1;
+    ClientProxy *proxy = (ClientProxy*) arg;
+    int comunicationSocket;
 
     // Recebe informação do cliente
-    if(read(_serverSocket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "Socket %d - Error receiving information from Server.\n", socket);
-        return -1;
+    while(isRunning)
+    {
+        //Espera por conexões do cliente e dispara threads
+        fprintf(stderr, "%s\n", "esperando Servidor");
+        if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "Socket %d - Error receiving information from Server.\n", proxy->getServerSocket());
+        }
+        else{
+            fprintf(stderr, "\n Server: %s\n", buffer);
+            if(write(comunicationSocket, buffer, sizeof(buffer)) < 0){
+                fprintf(stderr, "DropboxClient - Error sending information to Client.\n");
+            }
+        }
     }
-    fprintf(stderr, "\n Server: %s\n", buffer);
-    if(write(socket, buffer, sizeof(buffer)) < 0){
-        fprintf(stderr, "DropboxClient - Error sending information to Client.\n");
-        return -1;
-    }
+}
+
+void ClientProxy::lock_serverSocket(){ pthread_mutex_lock(&_serverMutex); }
+void ClientProxy::unlock_serverSocket(){ pthread_mutex_unlock(&_serverMutex); }
+void ClientProxy::lock_clientSocket(){ pthread_mutex_lock(&_clientMutex); }
+void ClientProxy::unlock_clientSocket(){ pthread_mutex_unlock(&_clientMutex); }
+
+int ClientProxy::getClientSocket(){
+    return _clientSocket;
+}
+
+int ClientProxy::getServerSocket(){
+    return _serverSocket;
+}
+
+void ClientProxy::set_clientThreadState(int thread_state){
+    _clientThreadState = thread_state;
+}
+
+int ClientProxy::get_clientThreadState(){
+    return _clientThreadState;
+}
+
+void ClientProxy::set_serverThreadState(int thread_state){
+    _clientThreadState = thread_state;
+}
+
+int ClientProxy::get_serverThreadState(){
+    return _serverThreadState;
 }
 
 int ClientProxy::get_clientSocket(){ return _serverSocket; }

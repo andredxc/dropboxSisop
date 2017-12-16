@@ -53,7 +53,7 @@ class DropboxServer{
         void send_file(int socket, char* userId, char* file);
     //Funções extras
         int initialize();
-		void handleConnection(int* socket);
+	      void handleConnection(int* socket);
         int listenAndAccept();
         void closeConnection(int socket);
 
@@ -61,7 +61,7 @@ class DropboxServer{
 
     private:
     //Funções extras
-		static void* handleConnectionThread(void* args);
+		    static void* handleConnectionThread(void* args);
         bool assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId);
         bool logInClient(int socket, char* userId);
         void logOutClient(int socket, char* userId);
@@ -86,6 +86,12 @@ class DropboxServer{
         // Função que transfere alterações aos backups
         // Função que transfere todo o servidor para o host e porta que conversam com o cliente
 
+};
+
+/*Utilizada na criação da thread pois a função tem que ser static*/
+typedef struct serverAndSocket{
+    DropboxServer* instance;
+    int* socket;
 };
 
 #endif

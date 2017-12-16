@@ -11,10 +11,10 @@
 int main(int argc, char** argv){
 
     ClientProxy proxy;
-    int comunicationSocket, isRunning=1;
+    int isRunning=1;
 
     //Inicialização do socket de comunicação com o cliente
-    if(proxy.initialize_clientConnection() < 0){
+    if(proxy.initialize_serverConnection() < 0){
         return -1;
     }
 
@@ -26,18 +26,20 @@ int main(int argc, char** argv){
     }
     ///////////////////////////////////////////////////////////
 
-    //Espera por conexões do cliente e dispara threads
-    while(isRunning){
-        fprintf(stderr, "Server is listening.\n");
-        comunicationSocket = proxy.listenAndAccept();
+    fprintf(stderr, "Server is listening.\n");
 
-        // TODO: if checkServer == 1 else abaixo
-        // Recebe informação do Cliente e manda ao Servidor
-        comunicationSocket = proxy.handle_clientConnection(comunicationSocket);
-        // Recebe informação do Servidor e manda ao cliente
-        comunicationSocket = proxy.handle_serverConnection(comunicationSocket);
-        // Manda informação ao Servidor
-    }
+
+    // TODO: if checkServer == 1 else abaixo
+    // Recebe informação do Cliente e manda ao Servidor
+    pthread_t *clientThread;
+    clientThread = proxy.clientWatcher();
+
+    // Recebe informação do Servidor e manda ao cliente
+    pthread_t *serverThread;
+    serverThread = proxy.serverWatcher();
+
+    pthread_join(*clientThread, NULL);
+    pthread_join(*serverThread, NULL);
 
     close(proxy.get_clientSocket());
     return 0;

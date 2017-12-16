@@ -12,12 +12,6 @@
 #include "dropboxServer.h"
 #include "../Util/dropboxUtil.h"
 
-/*Utilizada na criação da thread pois a função tem que ser static*/
-typedef struct classAndSocket{
-    DropboxServer* instance;
-    int* socket;
-};
-
 /*Constructor*/
 DropboxServer::DropboxServer(){
     pthread_mutex_init(&_clientStructMutex, NULL);
@@ -267,7 +261,7 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
 void DropboxServer::handleConnection(int* socket){
 
 	  pthread_t comunicationThread;
-    struct classAndSocket* arg = (struct classAndSocket*) malloc(sizeof(struct classAndSocket));
+    struct serverAndSocket* arg = (struct serverAndSocket*) malloc(sizeof(struct serverAndSocket));
 
     arg->socket = socket;
     arg->instance = this;
@@ -277,7 +271,7 @@ void DropboxServer::handleConnection(int* socket){
 /*Thread que realiza a comunicação entre o servidor e o cliente*/
 void* DropboxServer::handleConnectionThread(void* args){
 
-    struct classAndSocket arg = *(struct classAndSocket*)args;
+    struct serverAndSocket arg = *(struct serverAndSocket*)args;
     int socket, returnVal;
     bool isRunning = true;
     char receiveBuffer[CP_MAX_MSG_SIZE], userId[MAXNAME];
