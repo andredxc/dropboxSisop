@@ -22,11 +22,13 @@ class ClientProxy{
         bool _isConnected;
         char _userId[MAXNAME];
         pthread_mutex_t _comunicationMutex;
+        int _communicationSocket;
 
         // Socket de comunicação com o servidor
         int _serverSocket;
         std::vector<CLIENT> _clients;
         pthread_mutex_t _clientStructMutex;
+
 
         // Gere se thread está disponível
         int _clientThreadState;
@@ -41,6 +43,7 @@ class ClientProxy{
         ClientProxy(){
             _clientThreadState = 0;
             _serverThreadState = 0;
+            _communicationSocket = -1;
             _server_list = get_serverList();
         };
         int initialize_clientConnection();
@@ -58,10 +61,17 @@ class ClientProxy{
 
         int getServerSocket();
         int getClientSocket();
-        pthread_t *communicationWatcher();
-        static void* handle_connection(void *arg);
+        pthread_t *clientWatcher();
+        pthread_t *serverWatcher();
+        static void* handle_clientConnection(void *arg);
+        static void* handle_serverConnection(void *arg);
         void lock_socket();
         void unlock_socket();
+        int check_socket(int socket);
+        int get_communicationSocket();
+        void set_communicationSocket(int communicationSocket);
+        void closeConnection(int socket);
+        void close_serverConnection();
 
     private:
 

@@ -31,10 +31,16 @@ int main(){
 
     // TODO: if checkServer == 1 else abaixo
     // Recebe informação do Cliente e manda ao Servidor e vice-versa
-    pthread_t *communicationThread;
-    communicationThread = proxy.communicationWatcher();
+    pthread_t *clientThread;
+    pthread_t *serverThread;
 
-    pthread_join(*communicationThread, NULL);
+    proxy.set_communicationSocket(proxy.listenAndAccept());
+
+    clientThread = proxy.clientWatcher();
+    serverThread = proxy.serverWatcher();
+
+    pthread_join(*clientThread, NULL);
+    pthread_join(*serverThread, NULL);
 
     close(proxy.get_clientSocket());
     return 0;

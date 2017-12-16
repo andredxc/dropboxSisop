@@ -39,7 +39,7 @@ bool receiveExpectedInt(int socket, int message){
   	char buffer[CP_MAX_MSG_SIZE];
 
   	bzero(buffer, sizeof(buffer));
-  	if(read(socket, buffer, sizeof(buffer)) < 0){
+  	if(read(socket, buffer, sizeof(buffer)) <= 0){
   		fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
 		return false;
   	}

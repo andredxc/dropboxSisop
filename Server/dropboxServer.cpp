@@ -258,7 +258,7 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
 //--------------------------------------------------FUNÇÕES EXTRAS
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create*/
-void DropboxServer::handleConnection(int* socket){
+pthread_t *DropboxServer::handleConnection(int* socket){
 
 	  pthread_t comunicationThread;
     struct serverAndSocket* arg = (struct serverAndSocket*) malloc(sizeof(struct serverAndSocket));
@@ -266,6 +266,8 @@ void DropboxServer::handleConnection(int* socket){
     arg->socket = socket;
     arg->instance = this;
 	  pthread_create(&comunicationThread, NULL, handleConnectionThread, arg);
+
+    return &comunicationThread;
 }
 
 /*Thread que realiza a comunicação entre o servidor e o cliente*/
@@ -283,7 +285,7 @@ void* DropboxServer::handleConnectionThread(void* args){
 
     // Recebe o userId do cliente
     bzero(receiveBuffer, sizeof(receiveBuffer));
-    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) <= 0){
         fprintf(stderr, "Socket %d - Error receiving userId\n", socket);
         server->closeConnection(socket);
         free(args);
@@ -291,11 +293,16 @@ void* DropboxServer::handleConnectionThread(void* args){
     }
     // Valida o userId recebido
     if(server->logInClient(socket, receiveBuffer)){
-		// Logou com sucesso
-		fprintf(stderr, "Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
-		sendInteger(socket, CP_LOGIN_SUCCESSFUL);
+		      // Logou com sucesso
+		    fprintf(stderr, "Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
+		    if(!sendInteger(socket, CP_LOGIN_SUCCESSFUL))
+        {
+            fprintf(stderr, "Socket %d - User \"%s\" error\n", socket, receiveBuffer);
+            return NULL;
+        }
         strncpy(userId, receiveBuffer, sizeof(userId));
     }
+
     else{
 		// Falha no login
 		fprintf(stderr, "Socket %d - Error logging user %s in\n", socket, receiveBuffer);
@@ -365,6 +372,12 @@ void* DropboxServer::handleConnectionThread(void* args){
                 case CP_CLIENT_GET_FILE_UNLOCK:
                     server->unlockFile(socket, userId);
                     break;
+                case 0:
+                    fprintf(stderr, "Connection with Client not available. Trying to connect %d\n", atoi(receiveBuffer));
+                    sendInteger(socket, CP_LOGIN_FAILED);
+                    server->closeConnection(socket);
+                    free(args);
+                    return NULL;
                 default:
                     fprintf(stderr, "Socket %d - Unrecognized message %d\n", socket, atoi(receiveBuffer));
                     break;

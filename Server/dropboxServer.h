@@ -57,7 +57,7 @@ class DropboxServer{
         void send_file(int socket, char* userId, char* file);
     //Funções extras
         int initialize(int port);
-	      void handleConnection(int* socket);
+        pthread_t *handleConnection(int* socket);
         int listenAndAccept();
         void closeConnection(int socket);
 
