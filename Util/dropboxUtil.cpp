@@ -198,6 +198,7 @@ const char* getCPMessage(int cpCode){
         case CP_CLIENT_GET_FILE_UNLOCK_ACK: return "CP_CLIENT_GET_FILE_UNLOCK_ACK";
         case CP_CLIENT_GET_FILE_UNLOCK_SUCCESS: return "CP_CLIENT_GET_FILE_UNLOCK_SUCCESS";
         case CP_CLIENT_GET_FILE_UNLOCK_FAIL: return "CP_CLIENT_GET_FILE_UNLOCK_FAIL";
+        case CP_CLIENT_GET_FILE_NOEXISTS: return "CP_CLIENT_GET_FILE_NOEXISTS";
         default: return "UNKNOWN";
     }
 }

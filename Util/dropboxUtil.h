@@ -54,6 +54,9 @@
 
 #define CP_CLIENT_SEND_MESSAGE_ACK  35
 
+#define  CP_CLIENT_GET_FILE_NOEXISTS 36
+
+
 #define CP_MAX_MSG_SIZE  				256
 
 //Outras constantes

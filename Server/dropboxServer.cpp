@@ -199,6 +199,10 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
     if(!(file = fopen(fserverPath, "r"))){
         // Erro na abertura
         fprintf(stderr, "DropboxServer - Error opening file \'%s\'\n", filePath);
+        if(!sendInteger(socket, CP_CLIENT_GET_FILE_NOEXISTS)){
+            fprintf(stderr, "DropboxServer - Error confirming file existance\n");
+            return;
+        }
     }
     // Envia confirmação da existência do arquivo
     if(!sendInteger(socket, CP_CLIENT_GET_FILE_EXISTS)){
