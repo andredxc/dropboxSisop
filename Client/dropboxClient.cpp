@@ -313,7 +313,6 @@ void DropboxClient::get_file(char* filePath, char *destination){
         fclose(file);
         return;
     }
-    fprintf(stderr, "DropboxClient - 1\n");
     // Envia o nome do arquivo
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(filePath), sizeof(buffer));
@@ -322,13 +321,11 @@ void DropboxClient::get_file(char* filePath, char *destination){
         fclose(file);
         return;
     }
-    fprintf(stderr, "DropboxClient - 2\n");
     // Recebe confirmação da existência do arquivo
     if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_EXISTS)){
         fprintf(stderr, "DropboxClient - Error confirming file existance\n");
         return;
     }
-    fprintf(stderr, "DropboxClient - 3\n");
     // Cria o arquivo
     if(!(newFile = fopen(newfilePath, "w"))){
         fprintf(stderr, "DropboxClient - Error creating file \'%s\'\n", destination);

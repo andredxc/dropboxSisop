@@ -45,6 +45,7 @@ class ClientProxy{
             _serverThreadState = 0;
             _communicationSocket = -1;
             _server_list = get_serverList();
+            _it = _server_list.begin();
         };
         int initialize_clientConnection();
         int listenAndAccept();
@@ -72,6 +73,8 @@ class ClientProxy{
         void set_communicationSocket(int communicationSocket);
         void closeConnection(int socket);
         void close_serverConnection();
+        std::pair<std::string, int> get_currentServerName();
+        void increment_currentServer();
 
     private:
 

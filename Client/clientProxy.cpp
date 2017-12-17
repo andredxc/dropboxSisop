@@ -113,8 +113,6 @@ void* ClientProxy::handle_clientConnection(void *arg){
     int communicationSocket;
 
     while(isRunning){
-        //std::cerr << "CLIENT: " << proxy->check_socket(proxy->getClientSocket()) << "\n";
-        //std::cerr << "SERVER: " << proxy->check_socket(proxy->getServerSocket()) << "\n";
         // Recebe informação do cliente e manda ao servidor
         //TODO: proxy->check_socket(communicationSocket);
         if(read(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0)
@@ -143,6 +141,8 @@ void* ClientProxy::handle_serverConnection(void *arg){
     int isRunning = 1;
     ClientProxy *proxy = (ClientProxy*) arg;
     int communicationSocket;
+    std::pair<std::string, int> serverHostPort;
+    const char * serverChar;
 
     while(isRunning){
         //std::cerr << "CLIENT: " << proxy->check_socket(proxy->getClientSocket()) << "\n";
@@ -152,7 +152,13 @@ void* ClientProxy::handle_serverConnection(void *arg){
         if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
         {
             fprintf(stderr, "ClientProxy - Trying to connect to Server.\n");
-            proxy->connect_server("localhost", 4000);
+            do{
+            proxy->close_serverConnection();
+            serverHostPort = proxy->get_currentServerName();
+            serverChar = (serverHostPort.first).c_str(); // converte string a array de char
+            proxy->increment_currentServer();
+          } while(proxy->connect_server((char *)serverChar, serverHostPort.second) <= 0);
+            fprintf(stderr, "ClientProxy - Connected to Server.\n");
         }
         //TODO: proxy->check_socket(communicationSocket);
         else if(write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
@@ -171,14 +177,20 @@ void* ClientProxy::handle_serverConnection(void *arg){
     return NULL;
 }
 
+std::pair<std::string, int> ClientProxy::get_currentServerName(){ return *_it; }
+void ClientProxy::increment_currentServer(){
+    _it++;
+    if(_it == _server_list.end()) _it = _server_list.begin();
+}
+
 /* Termina a conexão */
 void ClientProxy::close_serverConnection(){
 
     if(!sendInteger(_serverSocket, CP_CLIENT_END_CONNECTION)){
-        fprintf(stderr, "DropboxClient - Error sending close connection message\n");
+        fprintf(stderr, "ClientProxy - Error sending close connection message\n");
     }
     else{
-        fprintf(stderr, "DropboxClient - Closing connection with server\n");
+        fprintf(stderr, "ClientProxy - Closing connection with server\n");
     }
     _isConnected = false;
 }
