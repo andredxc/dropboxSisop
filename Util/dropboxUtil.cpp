@@ -91,6 +91,7 @@ void getFileSize(const char* filePath, int* buffer){
     fseek(curFile, 0, SEEK_SET);
 
     *buffer = curFileSize;
+    fclose(curFile);
 }
 
 void getFileInfo(const char* filePath, struct file_info *info){

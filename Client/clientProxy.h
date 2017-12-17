@@ -78,7 +78,7 @@ class ClientProxy{
 };
 
 /*Utilizada na criação da thread pois a função tem que ser static*/
-typedef struct proxyAndSocket{
+struct proxyAndSocket{
     ClientProxy* instance;
     int* socket;
 };

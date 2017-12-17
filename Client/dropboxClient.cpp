@@ -136,7 +136,9 @@ void DropboxClient::sync_client(){
     if((localSyncDir = opendir(syncDirPath)) != NULL){
         while((entry = readdir(localSyncDir)) != NULL){
             // Para cada arquivo no diretório
-            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0){
+            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0
+                || entry->d_name[0] == '.' || entry->d_name[strlen(entry->d_name)-1] == '~'){
+                //Ignora diretórios, arquivos ocultos e temporários
                 continue;
             }
 
@@ -512,53 +514,65 @@ void* DropboxClient::fileWatcher(void* clientClass){
                 if(event->mask & IN_ISDIR){
                     //Ignora diretórios
                 }
-                else if(event->name && (event->name[0] == '.'  || event->name[strlen(event->name)-1] == '~')){
+                else if(event->name && (event->name[0] == '.' || event->name[strlen(event->name)-1] == '~')){
                     //Ignora arquivos ocultos
                 }
                 else if(event->mask & IN_OPEN){
                     //O arquivo foi aberto
-                    /*
-                    fprintf(stderr, "O ARQUIVO %s FOI ABERTO\n", event->name);
+                    snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     done = false;
                     client->lockSocket();
                     while(!done){
                         //Tenta pegar o lock do arquivo até conseguir
                         if(client->lockFile(basename(event->name)) == 0){
                             //Lock concedido
-                            fprintf(stderr, "Got lock for file \'%s\'\n", event->name);
+                            if(chmod(curFilePath, S_IRUSR | S_IROTH | S_IRGRP | S_IWGRP | S_IWUSR) != 0){
+                                fprintf(stderr, "Error, couldn't change file permissions for \'%s\'\n", curFilePath);
+                            }
+                            // fprintf(stderr, "Got lock for file \'%s\'\n", event->name);
                             client->unlockSocket();
                             done = true;
                         }
                         else{
+                            //Lock não concedido
                             fprintf(stderr, "Failed getting lock for file \'%s\'\n", event->name);
                             client->unlockSocket();
-                            sleep(2);
-                            client->lockSocket();
-                            fprintf(stderr, "Trying again...\n");
+                            //Verifica se o arquivo existe, pois podia ser um arquivo temporário
+                            if(access(curFilePath, F_OK) != -1){
+                                //Tira todas as permissões do arquivo
+                                if(chmod(curFilePath, 0) != 0){
+                                    fprintf(stderr, "Error, couldn't change file permissions for \'%s\'\n", curFilePath);
+                                }
+                                sleep(2);
+                                client->lockSocket();
+                                fprintf(stderr, "Trying again...\n");
+                            }
+                            else{
+                                done = true;
+                            }
                         }
                     }
-                    */
                 }
                 else if(event->mask & IN_CLOSE_WRITE){
-                    fprintf(stderr, "O ARQUIVO %s FOI MODIFICADO\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
                     client->send_file(curFilePath);
+                    client->unlockFile(basename(curFilePath));
                     client->unlockSocket();
                 }
                 else if(event->mask & IN_CLOSE){
-                    //O arquivo foi aberto
-                    fprintf(stderr, "O ARQUIVO %s FOI IN_CLOSE\n", event->name);
+                    //O arquivo foi fechado
+                    client->lockSocket();
+                    client->unlockFile(basename(event->name));
+                    client->unlockSocket();
                 }
                 else if(event->mask & IN_CREATE){
-                    fprintf(stderr, "O ARQUIVO %s FOI CRIADO\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
                     client->send_file(curFilePath);
                     client->unlockSocket();
                 }
                 else if(event->mask & IN_DELETE){
-                    fprintf(stderr, "O ARQUIVO %s FOI DELETADO\n", event->name);
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
                     client->delete_file(curFilePath);
@@ -780,10 +794,17 @@ void DropboxClient::unlockFile(char* fileName){
         return;
     }
     //Espera pela mensagem de confirmação da remoção do lock
-    if(!receiveExpectedInt(_socket, CP_CLIENT_GET_FILE_UNLOCK_SUCCESS)){
-        fprintf(stderr, "DropboxClient - Error receiving CP_CLIENT_GET_FILE_UNLOCK_ACK from server\n");
+  	bzero(buffer, sizeof(buffer));
+  	if(read(_socket, buffer, sizeof(buffer)) <= 0){
+  		fprintf(stderr, "DropboxClient - Error receving unlock result message\n");
+		return;
+  	}
+
+    //Verifica se obteve sucesso
+  	if(atoi(buffer) == CP_CLIENT_GET_FILE_UNLOCK_SUCCESS){
+  // 		fprintf(stderr, "File \'%s\' unlock success\n", fileName);
         return;
-    }
+  	}
 }
 
 void DropboxClient::lockSocket(){

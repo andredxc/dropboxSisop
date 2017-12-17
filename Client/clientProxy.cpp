@@ -57,9 +57,6 @@ int ClientProxy::listenAndAccept(){
     struct sockaddr_in clientAddress;
     socklen_t clientLength;
     int newSocket;
-    clock_t end;
-    clock_t begin = clock();
-    float elapsedTime;
 
     clientLength = sizeof(struct sockaddr_in);
     listen(_clientSocket, SERVER_BACKLOG);
@@ -110,7 +107,7 @@ int ClientProxy::check_socket(int socket){
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_clientConnection(void *arg){
 
-    char buffer[CP_MAX_MSG_SIZE], filePath[512];
+    char buffer[CP_MAX_MSG_SIZE];
     int isRunning = 1;
     ClientProxy *proxy = (ClientProxy*) arg;
     int communicationSocket;
@@ -136,12 +133,13 @@ void* ClientProxy::handle_clientConnection(void *arg){
             fprintf(stderr, "ClientProxy - Error sending information from Client to Server.\n");
         }
     }
+    return NULL;
 }
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_serverConnection(void *arg){
 
-    char buffer[CP_MAX_MSG_SIZE], filePath[512];
+    char buffer[CP_MAX_MSG_SIZE];
     int isRunning = 1;
     ClientProxy *proxy = (ClientProxy*) arg;
     int communicationSocket;
@@ -170,6 +168,7 @@ void* ClientProxy::handle_serverConnection(void *arg){
             proxy->unlock_socket();
         }
     }
+    return NULL;
 }
 
 /* Termina a conexão */

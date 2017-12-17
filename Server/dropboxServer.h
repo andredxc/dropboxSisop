@@ -93,7 +93,7 @@ class DropboxServer{
 };
 
 /*Utilizada na criação da thread pois a função tem que ser static*/
-typedef struct serverAndSocket{
+struct serverAndSocket{
     DropboxServer* instance;
     int* socket;
 };
