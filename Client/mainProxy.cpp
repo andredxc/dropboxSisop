@@ -9,7 +9,6 @@
 #include "clientProxy.h"
 
 int main(){
-
     ClientProxy proxy;
     int isRunning=1;
 
@@ -44,5 +43,4 @@ int main(){
 
     close(proxy.get_clientSocket());
     return 0;
-
 }

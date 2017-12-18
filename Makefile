@@ -3,7 +3,7 @@ CLIENT_DIR = ./Client/
 UTIL_DIR = ./Util/
 
 all: dropboxUtil.o dropboxClient.o clientProxy.o dropboxServer.o
-	g++ -o client $(CLIENT_DIR)mainClient.cpp dropboxClient.o dropboxUtil.o -lpthread
+	g++ -o client $(CLIENT_DIR)mainClient.cpp dropboxClient.o clientProxy.o dropboxUtil.o -lpthread
 	g++ -o proxy $(CLIENT_DIR)mainProxy.cpp clientProxy.o dropboxUtil.o -lpthread
 	g++ -o server $(SERVER_DIR)mainServer.cpp dropboxServer.o dropboxUtil.o -lpthread
 	mv dropboxServer.o $(SERVER_DIR)

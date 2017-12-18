@@ -13,10 +13,10 @@ int main(int argc, char** argv){
     int comunicationSocket, isRunning=1;
 
     //Inicialização do servidor
-    int argument = -1;
-    if(argc > 1){ argument = atoi(argv[1]);}
-    else { argument = SERVER_PORT;}
-    if(server.initialize(argument) < 0){
+    int port;
+    if(argc > 1)port = atoi(argv[1]);
+    else port = SERVER_PORT;
+    if(server.initialize(port) < 0){
         return -1;
     }
 
