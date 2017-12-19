@@ -575,12 +575,13 @@ void* DropboxClient::fileWatcher(void* clientClass){
                     client->unlockFile(basename(curFilePath));
                     client->unlockSocket();
                 }
-                else if(event->mask & IN_CLOSE){
-                    //O arquivo foi fechado
-                    client->lockSocket();
-                    client->unlockFile(basename(event->name));
-                    client->unlockSocket();
-                }
+                // Retirado pois, para a demonstração, basta funcionar com o VIM
+                // else if(event->mask & IN_CLOSE){
+                //     //O arquivo foi fechado
+                //     client->lockSocket();
+                //     client->unlockFile(basename(event->name));
+                //     client->unlockSocket();
+                // }
                 else if(event->mask & IN_CREATE){
                     snprintf(curFilePath, sizeof(curFilePath), "%s/%s", syncDirPath, event->name);
                     client->lockSocket();
@@ -676,6 +677,26 @@ void DropboxClient::listServerComand(SSL *ssl){
         }
         strncpy(curFileName, buffer, sizeof(curFileName));
 
+        // Envia ack pelo nome do arquivo
+        if(!sendInteger(_socket, CP_LIST_SERVER_FILENAME_ACK)){
+            fprintf(stderr, "DropboxClient - Error sending CP_LIST_SERVER_FILENAME_ACK\n");
+        }
+
+        //Recebe tamanho, ATime, MTime e CTime na mesma string dividida por |
+        bzero(buffer, sizeof(buffer));
+        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+            fprintf(stderr, "DropboxClient - Error receiving file information\n");
+        }
+        if(sscanf(buffer, "%d|%s|%s|%s", &curFileSize, curATime, curMTime, curCTime) != 4){
+            fprintf(stderr, "DropboxClient - Error receiving file information on listServerComand()\n");
+            fprintf(stderr, "\tInformation received:\n");
+            fprintf(stderr, "\tfileSize = %d\n", curFileSize);
+            fprintf(stderr, "\tATime = %s\n", curATime);
+            fprintf(stderr, "\tMTime = %s\n", curMTime);
+            fprintf(stderr, "\tCTime = %s\n", curCTime);
+        }
+
+        /*
         //Recebe tamanho do arquivo
         bzero(buffer, sizeof(buffer));
         if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
@@ -703,6 +724,7 @@ void DropboxClient::listServerComand(SSL *ssl){
             fprintf(stderr, "DropboxClient - Error receiving C time\n");
         }
         strncpy(curCTime, buffer, sizeof(curFileName));
+        */
 
         //Imprime a informação toda na tela
         fprintf(stderr, "%30s     %6d     %30s     %30s     %30s\n", curFileName, curFileSize, curCTime, curMTime, curATime);

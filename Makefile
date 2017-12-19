@@ -20,25 +20,25 @@ debug: dropboxClientDebug dropboxServerDebug dropboxUtilDebug
 	mv clientProxy.o $(CLIENT_DIR)
 
 dropboxClient.o: $(CLIENT_DIR)dropboxClient.cpp
-	g++ -c $(CLIENT_DIR)dropboxClient.cpp -Wall -lpthread
+	g++ -c $(CLIENT_DIR)dropboxClient.cpp -Wall -lpthread -lssl -lcrypto
 
 clientProxy.o: $(CLIENT_DIR)clientProxy.cpp
-	g++ -c $(CLIENT_DIR)clientProxy.cpp -Wall -lpthread
+	g++ -c $(CLIENT_DIR)clientProxy.cpp -Wall -lpthread -lssl -lcrypto
 
 dropboxClientDebug: $(CLIENT_DIR)dropboxClient.cpp
-	g++ -c $(CLIENT_DIR)dropboxClient.cpp -Wall -g -lpthread
+	g++ -c $(CLIENT_DIR)dropboxClient.cpp -Wall -g -lpthread -lssl -lcrypto
 
 dropboxServer.o: $(SERVER_DIR)dropboxServer.cpp
-	g++ -c $(SERVER_DIR)dropboxServer.cpp -Wall -lpthread
+	g++ -c $(SERVER_DIR)dropboxServer.cpp -Wall -lpthread -lssl -lcrypto
 
 dropboxServerDebug: $(SERVER_DIR)dropboxServer.cpp
-	g++ -c $(SERVER_DIR)dropboxServer.cpp -Wall -g -lpthread
+	g++ -c $(SERVER_DIR)dropboxServer.cpp -Wall -g -lpthread -lssl -lcrypto
 
 dropboxUtil.o: $(UTIL_DIR)dropboxUtil.cpp
-	g++ -c $(UTIL_DIR)dropboxUtil.cpp -Wall
+	g++ -c $(UTIL_DIR)dropboxUtil.cpp -Wall -lssl -lcrypto
 
 dropboxUtilDebug: $(UTIL_DIR)dropboxUtil.cpp
-	g++ -c $(UTIL_DIR)dropboxUtil.cpp -Wall -g
+	g++ -c $(UTIL_DIR)dropboxUtil.cpp -Wall -g -lssl -lcrypto
 
 clean:
 	rm $(CLIENT_DIR)*.o $(SERVER_DIR)*.o $(UTIL_DIR)*.o proxy client server

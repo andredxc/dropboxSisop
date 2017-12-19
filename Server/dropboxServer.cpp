@@ -757,6 +757,19 @@ void DropboxServer::listServer(int socket, char* userId){
                 fprintf(stderr, "Socket %d - Error sending file name\n", socket);
             }
 
+            // Recebe ack pelo nome do arquivo
+            if(!receiveExpectedInt(socket, CP_LIST_SERVER_FILENAME_ACK)){
+                fprintf(stderr, "Socket %d - Error getting ack for file name \'%s\'\n", socket, entry->d_name);
+            }
+
+            //Envia tamanho, ATime, MTime e CTime na mesma string
+            bzero(buffer, sizeof(buffer));
+            snprintf(buffer, sizeof(buffer), "%d|%s|%s|%s", curFileSize, curATime, curMTime, curCTime);
+            if(write(socket, buffer, sizeof(buffer)) < 0){
+                fprintf(stderr, "Socket %d - Error file \'%s\' information\n", socket, entry->name);
+            }
+
+            /*
             //Envia o tamanho do arquivo
             if(!sendInteger(socket, curFileSize)){
                 fprintf(stderr, "Socket %d - Error sending file size\n", socket);
@@ -782,6 +795,7 @@ void DropboxServer::listServer(int socket, char* userId){
             if(write(socket, buffer, sizeof(buffer)) < 0){
                 fprintf(stderr, "Socket %d - Error sending file name\n", socket);
             }
+            */
 
             //Espera pela confirmação do cliente
             if(!receiveExpectedInt(socket, CP_LIST_SERVER_FILE_OK)){
