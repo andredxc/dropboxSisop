@@ -22,11 +22,11 @@ class DropboxClient{
         bool _isConnected;
         char _userId[MAXNAME];
         pthread_mutex_t _comunicationMutex;
-
+        SSL _ssl;
     public:
     //Funções definidas na especificação
         DropboxClient();
-        int connect_server(char* host, int port);
+        SSL connect_server(char* host, int port);
         void sync_client(SSL *ssl);
         void send_file(char* filePath, SSL *ssl);
         void get_file(char* filePath, char *destination, SSL *ssl);

@@ -28,7 +28,7 @@ int main(int argc, char** argv){
     }
 
     // Conecta ao servidor
-    if(client.connect_server(argv[2], atoi(argv[3])) < 0){
+    if(client.connect_server(argv[2], atoi(argv[3])).second < 0){
         return -1;
     }
 

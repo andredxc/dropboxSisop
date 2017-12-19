@@ -16,16 +16,11 @@
 #include "dropboxClient.h"
 #include "../Util/dropboxUtil.h"
 
-
-
 SSL_METHOD *method;
 SSL_CTX *ctx;
-OpenSSL add_all_algorithms();
+OpenSSL_add_all_algorithms();
 SSL_load_error_strings();
 method = SSLv23_client_method();
-
-
-
 
 /*Constructor*/
 DropboxClient::DropboxClient(){
@@ -36,7 +31,7 @@ DropboxClient::DropboxClient(){
 //------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
 
 /*Estabelece a conexão entre host (endereço servidor) e port (porta da conexão)*/
-int DropboxClient::connect_server(char* host, int port){
+std::pair<SSL,int> DropboxClient::connect_server(char* host, int port){
 
     struct hostent *server;
     struct sockaddr_in serverAddress;
@@ -73,12 +68,12 @@ int DropboxClient::connect_server(char* host, int port){
       ERR_print_errors_fp(stderr);
       abort();
     }
-    ssl = SSL_new(ctx);
-    SSL_set_fd(ssl,_socket);
-    if(SSL_connect(ssl) == -1)
+    _ssl = SSL_new(ctx);
+    SSL_set_fd(_ssl,_socket);
+    if(SSL_connect(_ssl) == -1)
       ERR_print_error_fp(stderr);
     else
-    return _socket;
+    return std::make_pair(_ssl, _socket);
 }
 
 /* Sincroniza os arquivos entre cliente e servidor */
