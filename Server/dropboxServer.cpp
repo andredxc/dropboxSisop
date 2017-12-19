@@ -57,20 +57,20 @@ void DropboxServer::sync_server(int socket, char* userId){
         //Envia o nome do arquivo
         bzero(buffer, sizeof(buffer));
         strncpy(buffer, _clients.at(userIndex).file_info[i].name, sizeof(buffer));
-        if(write(socket, buffer, sizeof(buffer)) < 0){
+        if(write(socket, buffer, sizeof(buffer)) <= 0){
             fprintf(stderr, "Socket %d - Error sending file %d name (%s)\n", socket, i+1, buffer);
         }
 
         //Envia o M time do arquivo
         bzero(buffer, sizeof(buffer));
         strncpy(buffer, _clients.at(userIndex).file_info[i].last_modified, sizeof(buffer));
-        if(write(socket, buffer, sizeof(buffer)) < 0){
+        if(write(socket, buffer, sizeof(buffer)) <= 0){
             fprintf(stderr, "Socket %d - Error sending file %d M time (%s)\n", socket, i+1, buffer);
         }
 
         //Espera resposta indicando o que fazer
         bzero(buffer, sizeof(buffer));
-        if(read(socket, buffer, sizeof(buffer)) < 0){
+        if(read(socket, buffer, sizeof(buffer)) <= 0){
             fprintf(stderr, "Socket %d - Error receiving answer from client\n", socket);
         }
 
@@ -86,7 +86,7 @@ void DropboxServer::sync_server(int socket, char* userId){
                 }
                 //Espera pelo nome do arquivo
                 bzero(buffer, sizeof(buffer));
-                if(read(socket, buffer, sizeof(buffer)) < 0){
+                if(read(socket, buffer, sizeof(buffer)) <= 0){
                     fprintf(stderr, "Socket %d - Error receiving file name from client\n", socket);
                 }
                 else{
@@ -101,7 +101,7 @@ void DropboxServer::sync_server(int socket, char* userId){
                 }
                 //Recebe o nome do arquivo
                 bzero(buffer, sizeof(buffer));
-                if(read(socket, buffer, sizeof(buffer)) < 0){
+                if(read(socket, buffer, sizeof(buffer)) <= 0){
                     fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                 }
                 else{
@@ -135,7 +135,7 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
 
     // Recebe o tamanho do arquivo
     bzero(buffer, sizeof(buffer));
-    if(read(socket, buffer, sizeof(buffer)) < 0){
+    if(read(socket, buffer, sizeof(buffer)) <= 0){
         fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
         return;
     }
@@ -152,7 +152,7 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
 
         sizeToReceive = (fileSize - sizeReceived) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeReceived);
         bzero(buffer, sizeof(buffer));
-        if(read(socket, buffer, sizeof(buffer)) < 0){
+        if(read(socket, buffer, sizeof(buffer)) <= 0){
             fprintf(stderr, "Socket %d - Error receiving part of file %d\n", socket, i+1);
         }
         fwrite((void*) buffer, sizeToReceive, 1, newFile);
@@ -174,7 +174,7 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
 
     //Recebe o M time do arquivo no cliente
     bzero(buffer, sizeof(buffer));
-    if(read(socket, buffer, sizeof(buffer)) < 0){
+    if(read(socket, buffer, sizeof(buffer)) <= 0){
         fprintf(stderr, "Socket %d - Error receiving file's M time\n", socket);
     }
     //Preenche as estruturas internas do servidor
@@ -235,7 +235,7 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
         bzero(buffer, sizeof(buffer));
         fread((void*) buffer, sizeToSend, 1, file);
-        if(write(socket, buffer, sizeof(buffer)) < 0){
+        if(write(socket, buffer, sizeof(buffer)) <= 0){
             fprintf(stderr, "DropboxServer - Error sending part %d of file\n", i);
         }
         if(!receiveExpectedInt(socket, CP_FILE_PART_RECEIVED)){
@@ -340,7 +340,7 @@ void* DropboxServer::handleConnectionThread(void* args){
                     }
                     //Recebe o nome do arquivo
                     bzero(receiveBuffer, sizeof(receiveBuffer));
-                    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) <= 0){
                         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                     }
                     else{
@@ -354,7 +354,7 @@ void* DropboxServer::handleConnectionThread(void* args){
                     }
                     //Recebe o nome do arquivo
                     bzero(receiveBuffer, sizeof(receiveBuffer));
-                    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                    if(read(socket, receiveBuffer, sizeof(receiveBuffer)) <= 0){
                         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                     }
                     else{
@@ -645,7 +645,7 @@ void DropboxServer::deleteFile(int socket, char* userId){
 
     //Recebe o nome do arquivo a ser deletado
     bzero(buffer, sizeof(buffer));
-    if(read(socket, buffer, sizeof(buffer)) < 0){
+    if(read(socket, buffer, sizeof(buffer)) <= 0){
         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
         return;
     }
@@ -753,7 +753,7 @@ void DropboxServer::listServer(int socket, char* userId){
             //Envia o nome do arquivo
             bzero(buffer, sizeof(buffer));
             strncpy(buffer, entry->d_name, sizeof(buffer));
-            if(write(socket, buffer, sizeof(buffer)) < 0){
+            if(write(socket, buffer, sizeof(buffer)) <= 0){
                 fprintf(stderr, "Socket %d - Error sending file name\n", socket);
             }
 
@@ -765,21 +765,21 @@ void DropboxServer::listServer(int socket, char* userId){
             //Envia o A time
             bzero(buffer, sizeof(buffer));
             strncpy(buffer, curATime, sizeof(buffer));
-            if(write(socket, buffer, sizeof(buffer)) < 0){
+            if(write(socket, buffer, sizeof(buffer)) <= 0){
                 fprintf(stderr, "Socket %d - Error sending file name\n", socket);
             }
 
             //Envia o M time
             bzero(buffer, sizeof(buffer));
             strncpy(buffer, curMTime, sizeof(buffer));
-            if(write(socket, buffer, sizeof(buffer)) < 0){
+            if(write(socket, buffer, sizeof(buffer)) <= 0){
                 fprintf(stderr, "Socket %d - Error sending file name\n", socket);
             }
 
             //Envia o C time
             bzero(buffer, sizeof(buffer));
             strncpy(buffer,curCTime, sizeof(buffer));
-            if(write(socket, buffer, sizeof(buffer)) < 0){
+            if(write(socket, buffer, sizeof(buffer)) <= 0){
                 fprintf(stderr, "Socket %d - Error sending file name\n", socket);
             }
 
@@ -806,7 +806,7 @@ void DropboxServer::lockFile(int socket, char* userId){
     }
     //Recebe o nome do arquivo
     bzero(buffer, sizeof(buffer));
-    if(read(socket, buffer, sizeof(buffer)) < 0){
+    if(read(socket, buffer, sizeof(buffer)) <= 0){
         fprintf(stderr, "Socket %d - Error receiving name of file to be locked\n", socket);
         return;
     }
@@ -879,7 +879,7 @@ void DropboxServer::unlockFile(int socket, char* userId){
     }
     //Recebe o nome do arquivo
     bzero(buffer, sizeof(buffer));
-    if(read(socket, buffer, sizeof(buffer)) < 0){
+    if(read(socket, buffer, sizeof(buffer)) <= 0){
         fprintf(stderr, "Socket %d - Error receiving name of file to be unlocked\n", socket);
         return;
     }

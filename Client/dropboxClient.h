@@ -19,7 +19,7 @@ class DropboxClient{
         int _socket;
         bool _isConnected;
         char _userId[MAXNAME];
-        pthread_mutex_t _comunicationMutex;
+        pthread_mutex_t _communicationMutex;
 
     public:
     //Funções definidas na especificação

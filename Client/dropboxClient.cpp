@@ -19,7 +19,7 @@
 /*Constructor*/
 DropboxClient::DropboxClient(){
     _isConnected = false;
-    pthread_mutex_init(&_comunicationMutex, NULL);
+    pthread_mutex_init(&_communicationMutex, NULL);
 }
 
 //------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
@@ -807,12 +807,12 @@ void DropboxClient::unlockFile(char* fileName){
 
 void DropboxClient::lockSocket(){
 
-    pthread_mutex_lock(&_comunicationMutex);
+    pthread_mutex_lock(&_communicationMutex);
 }
 
 void DropboxClient::unlockSocket(){
 
-    pthread_mutex_unlock(&_comunicationMutex);
+    pthread_mutex_unlock(&_communicationMutex);
 }
 
 int DropboxClient::getSocket(){ return _socket; }

@@ -62,9 +62,10 @@ int ClientProxy::listenAndAccept(){
     listen(_clientSocket, SERVER_BACKLOG);
 
     newSocket = accept(_clientSocket, (struct sockaddr*) &clientAddress, &clientLength);
-
-    fprintf(stderr, "ClientProxy - Client connected.\n");
-
+    if(newSocket > 0){
+        _isClientConnected = true;
+        fprintf(stderr, "ClientProxy - Client connected.\n");
+    }
     return newSocket;
 }
 
@@ -111,28 +112,39 @@ void* ClientProxy::handle_clientConnection(void *arg){
     int isRunning = 1;
     ClientProxy *proxy = (ClientProxy*) arg;
     int communicationSocket;
+    std::pair<std::string, int> serverHostPort;
+    const char * serverChar;
 
     while(isRunning){
         // Recebe informação do cliente e manda ao servidor
-        //TODO: proxy->check_socket(communicationSocket);
-        if(read(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0)
-        {
-            fprintf(stderr, "ClientProxy - Connection with Client not available. Waiting for new connection.\n");
-            proxy->close_serverConnection();
-            if((communicationSocket = proxy->listenAndAccept()) <= 0)
+        if(proxy->getServerConnected() == true && proxy->getClientConnected() == true){
+            if(read(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0)
             {
-                fprintf(stderr, "ClientProxy - Connection with Client not available. Couldn't connect with client.\n");
-                return NULL;
+                fprintf(stderr, "ClientProxy - Connection with Client died.\n");
+                proxy->close_serverConnection();
+                proxy->close_clientConnection();
+                proxy->set_error(1);
+                pthread_exit(NULL);
             }
-            else proxy->set_communicationSocket(communicationSocket);
-            proxy->unlock_socket();
+            else{
+                proxy->lockServerSocket();
+                if(write(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0){
+                    fprintf(stderr, "ClientProxy - Trying to connect to Server.\n");
+                }
+                proxy->unlockServerSocket();
+            }
         }
-        else if(write(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0){
-            fprintf(stderr, "ClientProxy - Error sending information from Client to Server.\n");
+        if(proxy->get_error()){
+            pthread_exit(NULL);
         }
     }
     return NULL;
 }
+
+/*
+// Enquanto não for o fim da lista de servidores e não conseguir se conectar, tenta
+
+*/
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_serverConnection(void *arg){
@@ -145,42 +157,56 @@ void* ClientProxy::handle_serverConnection(void *arg){
     const char * serverChar;
 
     while(isRunning){
-        //std::cerr << "CLIENT: " << proxy->check_socket(proxy->getClientSocket()) << "\n";
-        //std::cerr << "SERVER: " << proxy->check_socket(proxy->getServerSocket()) << "\n";
-        //TODO: proxy->check_socket(communicationSocket);
-        // Recebe informação do servidor e manda ao cliente
-        if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
-        {
-            fprintf(stderr, "ClientProxy - Trying to connect to Server.\n");
-            do{
-            proxy->close_serverConnection();
-            serverHostPort = proxy->get_currentServerName();
-            serverChar = (serverHostPort.first).c_str(); // converte string a array de char
-            proxy->increment_currentServer();
-          } while(proxy->connect_server((char *)serverChar, serverHostPort.second) <= 0);
-            fprintf(stderr, "ClientProxy - Connected to Server.\n");
-        }
-        //TODO: proxy->check_socket(communicationSocket);
-        else if(write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
-            fprintf(stderr, "ClientProxy - Connection with Client not available. Waiting for new connection.\n");
-            proxy->lock_socket();
-            //proxy->closeConnection(proxy->get_communicationSocket());
-            if((communicationSocket = proxy->listenAndAccept()) <= 0)
+        if(proxy->getServerConnected() == true && proxy->getClientConnected() == true){
+            if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
             {
-                fprintf(stderr, "ClientProxy - Connection with Client not available. Couldn't connect with client.\n");
+                proxy->close_serverConnection();
+            }
+            else if(write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
+                fprintf(stderr, "ClientProxy - Connection with Client died.\n");
+                proxy->close_serverConnection();
+                proxy->close_clientConnection();
+                proxy->set_error(1);
+                pthread_exit(NULL);
                 return NULL;
             }
-            else proxy->set_communicationSocket(communicationSocket);
-            proxy->unlock_socket();
+        }
+        else if(proxy->getClientConnected() == true){
+            proxy->reset_serverList();
+            while(!proxy->compare_itEnd() && !proxy->getServerConnected()){
+                serverHostPort = proxy->get_currentServerName();
+                serverChar = (serverHostPort.first).c_str(); // converte string a array de char
+                fprintf(stderr, "ClientProxy - Trying to connect to Server (host: %s, port: %d).\n", serverChar, serverHostPort.second);
+                proxy->connect_server((char *)serverChar, serverHostPort.second);
+                proxy->increment_currentServer();
+            }
+            if(proxy->compare_itEnd()){
+                fprintf(stderr, "ClientProxy - Couldn't connect to any Server.\n");
+                proxy->close_serverConnection();
+                proxy->close_clientConnection();
+                proxy->set_error(1);
+                pthread_exit(NULL);
+                return NULL;
+            }
+            fprintf(stderr, "ClientProxy - Connected to Server.\n");
+        }
+        if(proxy->get_error()){
+            pthread_exit(NULL);
         }
     }
     return NULL;
 }
 
 std::pair<std::string, int> ClientProxy::get_currentServerName(){ return *_it; }
+void ClientProxy::reset_serverList(){
+    _it = _server_list.begin();
+}
 void ClientProxy::increment_currentServer(){
     _it++;
-    if(_it == _server_list.end()) _it = _server_list.begin();
+}
+bool ClientProxy::compare_itEnd(){
+    if(_it == _server_list.end()) return true;
+    return false;
 }
 
 /* Termina a conexão */
@@ -192,19 +218,39 @@ void ClientProxy::close_serverConnection(){
     else{
         fprintf(stderr, "ClientProxy - Closing connection with server\n");
     }
-    _isConnected = false;
+    _isServerConnected = false;
 }
 
-void ClientProxy::lock_socket(){ pthread_mutex_lock(&_Mutex); }
-void ClientProxy::unlock_socket(){ pthread_mutex_unlock(&_Mutex); }
+/*Fecha a conexão com um cliente*/
+void ClientProxy::close_clientConnection(){
+
+  	printf("ClientProxy - Closing connection with client socket %d\n", _communicationSocket);
+    _isClientConnected = false;
+  	close(_communicationSocket);
+}
+
+void ClientProxy::lock_socket(){ pthread_mutex_lock(&_communicationMutex); }
+void ClientProxy::unlock_socket(){ pthread_mutex_unlock(&_communicationMutex); }
 
 int ClientProxy::getClientSocket(){
     return _clientSocket;
 }
 
+int ClientProxy::getClientConnected(){
+    return _isClientConnected;
+}
+
+int ClientProxy::getServerConnected(){
+    return _isServerConnected;
+}
+
 int ClientProxy::getServerSocket(){
     return _serverSocket;
 }
+
+int ClientProxy::get_error(){ return _error; }
+
+void ClientProxy::set_error(int error){ _error = error; }
 
 int ClientProxy::get_communicationSocket(){
     return _communicationSocket;
@@ -258,7 +304,29 @@ int ClientProxy::connect_server(char* host, int port){
     bzero(&(serverAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
                                          // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
     // tente conectar ao servidor (caso não consiga, interrompe execução e retorna erro)
-    while(connect(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){    }
-    _isConnected = true;
+    if(connect(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) >= 0){
+        _isServerConnected = true;
+    }
     return _serverSocket;
+}
+
+
+void ClientProxy::lockClientSocket(){
+
+    pthread_mutex_lock(&_clientMutex);
+}
+
+void ClientProxy::unlockClientSocket(){
+
+    pthread_mutex_unlock(&_clientMutex);
+}
+
+void ClientProxy::lockServerSocket(){
+
+    pthread_mutex_lock(&_serverMutex);
+}
+
+void ClientProxy::unlockServerSocket(){
+
+    pthread_mutex_unlock(&_serverMutex);
 }
