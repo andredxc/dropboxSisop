@@ -264,7 +264,7 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create*/
 pthread_t *DropboxServer::handleConnection(int* socket){
 
-	  pthread_t comunicationThread;
+	pthread_t comunicationThread;
     struct serverAndSocket* arg = (struct serverAndSocket*) malloc(sizeof(struct serverAndSocket));
 
     arg->socket = socket;
@@ -766,7 +766,7 @@ void DropboxServer::listServer(int socket, char* userId){
             bzero(buffer, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "%d|%s|%s|%s", curFileSize, curATime, curMTime, curCTime);
             if(write(socket, buffer, sizeof(buffer)) < 0){
-                fprintf(stderr, "Socket %d - Error file \'%s\' information\n", socket, entry->name);
+                fprintf(stderr, "Socket %d - Error file \'%s\' information\n", socket, entry->d_name);
             }
 
             /*

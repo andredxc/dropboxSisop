@@ -16,12 +16,6 @@
 #include "dropboxClient.h"
 #include "../Util/dropboxUtil.h"
 
-SSL_METHOD *method;
-SSL_CTX *ctx;
-OpenSSL_add_all_algorithms();
-SSL_load_error_strings();
-method = SSLv23_client_method();
-
 /*Constructor*/
 DropboxClient::DropboxClient(){
     _isConnected = false;
@@ -31,10 +25,12 @@ DropboxClient::DropboxClient(){
 //------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
 
 /*Estabelece a conexão entre host (endereço servidor) e port (porta da conexão)*/
-std::pair<SSL,int> DropboxClient::connect_server(char* host, int port){
+int DropboxClient::connect_server(char* host, int port){
 
     struct hostent *server;
     struct sockaddr_in serverAddress;
+    const SSL_METHOD *method;
+    SSL_CTX *ctx;
 
     // tenta adquirir IP address (caso não consiga, interrompe execução e retorna erro)
     server = gethostbyname(host);
@@ -63,6 +59,11 @@ std::pair<SSL,int> DropboxClient::connect_server(char* host, int port){
     }
     _isConnected = true;
 
+    // Inicializa o SSL
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    method = SSLv23_client_method();
+
     ctx = SSL_CTX_new(method);
     if (ctx == NULL){
       ERR_print_errors_fp(stderr);
@@ -70,14 +71,17 @@ std::pair<SSL,int> DropboxClient::connect_server(char* host, int port){
     }
     _ssl = SSL_new(ctx);
     SSL_set_fd(_ssl,_socket);
-    if(SSL_connect(_ssl) == -1)
-      ERR_print_error_fp(stderr);
-    else
-    return std::make_pair(_ssl, _socket);
+    if(SSL_connect(_ssl) == -1){
+        ERR_print_errors_fp(stderr);
+        return -1;
+    }
+    else{
+        return _socket;
+    }
 }
 
 /* Sincroniza os arquivos entre cliente e servidor */
-void DropboxClient::sync_client(SSL *ssl){
+void DropboxClient::sync_client(){
 
     int numberOfFiles, i;
     char curFileName[CP_MAX_MSG_SIZE], curFilePath[512], syncDirPath[256], buffer[CP_MAX_MSG_SIZE];
@@ -96,7 +100,7 @@ void DropboxClient::sync_client(SSL *ssl){
 
     //Recebe o número de arquivos deste usuário no servidor
     bzero(buffer, sizeof(buffer));
-    if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error receiving ack for CP_SYNC_CLIENT\n");
         return;
     }
@@ -108,7 +112,7 @@ void DropboxClient::sync_client(SSL *ssl){
 
         //Recebe o nome do arquivo
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving file %d's name\n", i+1);
         }
         strncpy(curFileName, buffer, sizeof(curFileName));
@@ -116,7 +120,7 @@ void DropboxClient::sync_client(SSL *ssl){
 
         //Recebe o M time do arquivo
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving file %d's M time\n", i+1);
         }
         serverFileMTime = convertTimeString(buffer);
@@ -215,7 +219,7 @@ void DropboxClient::list_client(){
 }
 
 /* Envia um arquivo */
-void DropboxClient::send_file(char* filePath, SSL *ssl){
+void DropboxClient::send_file(char* filePath){
 
     FILE *file;
     int fileSize, i, iterations, sizeSent, sizeToSend;
@@ -251,7 +255,7 @@ void DropboxClient::send_file(char* filePath, SSL *ssl){
     // Envia o nome do arquivo
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(filePath), sizeof(buffer));
-    if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error sending filename \'%s\'\n", buffer);
         fclose(file);
         return;
@@ -278,7 +282,7 @@ void DropboxClient::send_file(char* filePath, SSL *ssl){
         sizeToSend = (fileSize - sizeSent) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeSent);
         bzero(buffer, sizeof(buffer));
         fread((void*) buffer, sizeToSend, 1, file);
-        if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error sending part %d of file\n", i);
         }
         if(!receiveExpectedInt(_socket, CP_FILE_PART_RECEIVED)){
@@ -301,14 +305,14 @@ void DropboxClient::send_file(char* filePath, SSL *ssl){
     }
 
     // Envia a data de ultima modificação do arquivo
-    if(SSL_write(ssl, mTime, sizeof(mTime)) < 0){
+    if(SSL_write(_ssl, mTime, sizeof(mTime)) < 0){
         fprintf(stderr, "DropboxClient - Error sending file's M time \'%s\'\n", buffer);
         return;
     }
 }
 
 /* Recebe um arquivo do servidor */
-void DropboxClient::get_file(char* filePath, char *destination, SSL *ssl){
+void DropboxClient::get_file(char* filePath, char *destination){
 
     FILE *file = NULL;
     int fileSize, sizeReceived, iterations, sizeToReceive;
@@ -333,7 +337,7 @@ void DropboxClient::get_file(char* filePath, char *destination, SSL *ssl){
     // Envia o nome do arquivo
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(filePath), sizeof(buffer));
-    if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error sending filename \'%s\'\n", buffer);
         fclose(file);
         return;
@@ -351,7 +355,7 @@ void DropboxClient::get_file(char* filePath, char *destination, SSL *ssl){
 
     // Recebe o tamanho do arquivo
     bzero(buffer, sizeof(buffer));
-    if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error receiving file size\n");
         return;
     }
@@ -369,7 +373,7 @@ void DropboxClient::get_file(char* filePath, char *destination, SSL *ssl){
 
         sizeToReceive = (fileSize - sizeReceived) > CP_MAX_MSG_SIZE ? CP_MAX_MSG_SIZE : (fileSize - sizeReceived);
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error receiving part of file %d\n", _socket, i+1);
         }
         fwrite((void*) buffer, sizeToReceive, 1, newFile);
@@ -392,7 +396,7 @@ void DropboxClient::get_file(char* filePath, char *destination, SSL *ssl){
 }
 
 /* Delete algum arquivo do servidor */
-void DropboxClient::delete_file(char* file, SSL *ssl){
+void DropboxClient::delete_file(char* file){
 
     char buffer[CP_MAX_MSG_SIZE];
 
@@ -410,7 +414,7 @@ void DropboxClient::delete_file(char* file, SSL *ssl){
     //Envia o nome do arquivo
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(file), sizeof(buffer));
-    if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error sending file name\n");
         return;
     }
@@ -639,7 +643,7 @@ void DropboxClient::getSyncDirComand(){
 }
 
 /* Executa as ações referentes ao comand list_server */
-void DropboxClient::listServerComand(SSL *ssl){
+void DropboxClient::listServerComand(){
 
     char buffer[CP_MAX_MSG_SIZE];
     char curFileName[CP_MAX_MSG_SIZE], curATime[50], curMTime[50], curCTime[50];
@@ -658,7 +662,7 @@ void DropboxClient::listServerComand(SSL *ssl){
 
     //Recebe número de arquivos
     bzero(buffer, sizeof(buffer));
-    if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error receiving number of files\n");
         return;
     }
@@ -672,7 +676,7 @@ void DropboxClient::listServerComand(SSL *ssl){
 
         //Recebe nome do arquivo
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving file name\n");
         }
         strncpy(curFileName, buffer, sizeof(curFileName));
@@ -684,7 +688,7 @@ void DropboxClient::listServerComand(SSL *ssl){
 
         //Recebe tamanho, ATime, MTime e CTime na mesma string dividida por |
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving file information\n");
         }
         if(sscanf(buffer, "%d|%s|%s|%s", &curFileSize, curATime, curMTime, curCTime) != 4){
@@ -699,28 +703,28 @@ void DropboxClient::listServerComand(SSL *ssl){
         /*
         //Recebe tamanho do arquivo
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving file size\n");
         }
         curFileSize = atoi(buffer);
 
         //Recebe A time do arquivo
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving A time\n");
         }
         strncpy(curATime, buffer, sizeof(curFileName));
 
         //Recebe M time do arquivo
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving M time\n");
         }
         strncpy(curMTime, buffer, sizeof(curFileName));
 
         //Recebe C time do arquivo
         bzero(buffer, sizeof(buffer));
-        if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+        if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxClient - Error receiving C time\n");
         }
         strncpy(curCTime, buffer, sizeof(curFileName));
@@ -737,7 +741,7 @@ void DropboxClient::listServerComand(SSL *ssl){
 }
 
 /* Envia o userId para o servidor e aguarda confirmação de log in */
-bool DropboxClient::sendUserId(char* userId, SSL *ssl){
+bool DropboxClient::sendUserId(char* userId){
 
     char buffer[CP_MAX_MSG_SIZE];
 
@@ -745,13 +749,13 @@ bool DropboxClient::sendUserId(char* userId, SSL *ssl){
     strncpy(_userId, userId, sizeof(_userId));
 
     // Envia a identificação (ID do usuário) para o servidor
-    if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
           fprintf(stderr, "DropboxClient - Error sending userId\n");
           return false;
     }
 
     // Aguarda mensagem de sucesso (ou fracasso) do login
-    if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error receiving sign in message\n");
         return false;
   	}
@@ -773,7 +777,7 @@ bool DropboxClient::sendUserId(char* userId, SSL *ssl){
 }
 
 /*Entra na fila para entrar numa sessão crítica distribuída para editar um arquivo compartilhado*/
-int DropboxClient::lockFile(char* fileName, SSL *ssl){
+int DropboxClient::lockFile(char* fileName){
 
     char buffer[CP_MAX_MSG_SIZE];
 
@@ -790,12 +794,12 @@ int DropboxClient::lockFile(char* fileName, SSL *ssl){
     //Envia o nome do arquivo
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(fileName), sizeof(buffer));
-    if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error sending filename \'%s\'\n", buffer);
         return -1;
     }
     //Recebe resultado
-    if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error receiving answer for file lock\n");
         return -1;
     }
@@ -809,7 +813,7 @@ int DropboxClient::lockFile(char* fileName, SSL *ssl){
 }
 
 /*Saí da fila para a edição do arquivo*/
-void DropboxClient::unlockFile(char* fileName,SSL *ssl){
+void DropboxClient::unlockFile(char* fileName){
 
     char buffer[CP_MAX_MSG_SIZE];
 
@@ -826,13 +830,13 @@ void DropboxClient::unlockFile(char* fileName,SSL *ssl){
     //Envia o nome do arquivo
     bzero(buffer, sizeof(buffer));
     strncpy(buffer, basename(fileName), sizeof(buffer));
-    if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
+    if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxClient - Error sending filename \'%s\' at unlockFile()\n", buffer);
         return;
     }
     //Espera pela mensagem de confirmação da remoção do lock
   	bzero(buffer, sizeof(buffer));
-  	if(SSL_read(ssl, buffer, sizeof(buffer)) <= 0){
+  	if(SSL_read(_ssl, buffer, sizeof(buffer)) <= 0){
   		fprintf(stderr, "DropboxClient - Error receving unlock result message\n");
 		return;
   	}
