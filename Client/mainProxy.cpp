@@ -20,9 +20,7 @@ int main(){
     /// TODO: Conectar a vários servidores, gerenciar mensagens dadas por eles (possivelmente tudo isso tem de ser transferido para o while abaixo)
 
     // Conecta ao servidor TODO: trocar argumentos para um txt, com lista de servidores
-    if(proxy.connect_server("localhost", 4000) < 0){
-        return -1;
-    }
+
     ///////////////////////////////////////////////////////////
 
     fprintf(stderr, "Server is listening.\n");

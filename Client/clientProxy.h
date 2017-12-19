@@ -19,9 +19,12 @@ class ClientProxy{
     private:
         // Socket de comunicação com o cliente
         int _clientSocket;
-        bool _isConnected;
+        bool _isClientConnected;
+        bool _isServerConnected;
         char _userId[MAXNAME];
-        pthread_mutex_t _comunicationMutex;
+        pthread_mutex_t _communicationMutex;
+        pthread_mutex_t _clientMutex;
+        pthread_mutex_t _serverMutex;
         int _communicationSocket;
 
         // Socket de comunicação com o servidor
@@ -29,11 +32,11 @@ class ClientProxy{
         std::vector<CLIENT> _clients;
         pthread_mutex_t _clientStructMutex;
 
+        int _error;
 
         // Gere se thread está disponível
         int _clientThreadState;
         int _serverThreadState;
-        pthread_mutex_t _Mutex;
 
         std::list<std::pair<std::string, int> > _server_list; // lista a receber lista de servidores
         std::list<std::pair<std::string, int> >::iterator _it; // iterador da lista, indica servidor conectado
@@ -44,6 +47,16 @@ class ClientProxy{
             _clientThreadState = 0;
             _serverThreadState = 0;
             _communicationSocket = -1;
+
+            _isClientConnected = false;
+            _isServerConnected = false;
+            _error = 0;
+
+            pthread_mutex_init(&_communicationMutex, NULL);
+            pthread_mutex_init(&_clientMutex, NULL);
+            pthread_mutex_init(&_serverMutex, NULL);
+
+
             _server_list = get_serverList();
             _it = _server_list.begin();
         };
@@ -72,9 +85,23 @@ class ClientProxy{
         int get_communicationSocket();
         void set_communicationSocket(int communicationSocket);
         void closeConnection(int socket);
+        void close_clientConnection();
         void close_serverConnection();
         std::pair<std::string, int> get_currentServerName();
+        int getClientConnected();
+        int getServerConnected();
+
+        void lockClientSocket();
+        void unlockClientSocket();
+        void lockServerSocket();
+        void unlockServerSocket();
+
+        void reset_serverList();
         void increment_currentServer();
+        bool compare_itEnd();
+
+        int get_error();
+        void set_error(int error);
 
     private:
 
