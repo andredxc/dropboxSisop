@@ -66,6 +66,7 @@
 
 bool sendInteger(int socket, int message);
 bool receiveExpectedInt(int socket, int message);
+bool receiveExpectedIntNoCare(int socket, int message);
 const char *getFileExtension(const char *filename);
 const char *get_filename_ext(const char *filename);
 void getMTime(const char* filePath, char* buffer, int bufferSize);

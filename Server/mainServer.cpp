@@ -23,7 +23,6 @@ int main(int argc, char** argv){
     //Esperando por conexões e disparando threads
     while(isRunning){
         fprintf(stderr, "Server is listening.\n");
-        server.connectToLeader();
         comunicationSocket = server.listenAndAccept();
         server.handleConnection(&comunicationSocket);
     }

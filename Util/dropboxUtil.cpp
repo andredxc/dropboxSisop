@@ -50,6 +50,20 @@ bool receiveExpectedInt(int socket, int message){
   	return true;
 }
 
+bool receiveExpectedIntNoCare(int socket, int message){
+
+  	char buffer[CP_MAX_MSG_SIZE];
+
+  	bzero(buffer, sizeof(buffer));
+  	if(read(socket, buffer, sizeof(buffer)) <= 0){
+		return false;
+  	}
+  	if(atoi(buffer) != message){
+	    return false;
+  	}
+  	return true;
+}
+
 /* Retorna nome de um arquivo */
 const char *getFileName(const char *filename){
     const char *name = strrchr(filename, '/');
