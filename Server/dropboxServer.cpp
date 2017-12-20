@@ -10,6 +10,9 @@
 #include <sys/stat.h>
 #include <iostream>
 #include <dirent.h>
+#include <string>
+#include <sstream>
+#include <netdb.h>
 #include "dropboxServer.h"
 #include "../Util/dropboxUtil.h"
 
@@ -17,7 +20,7 @@
 DropboxServer::DropboxServer(){
     pthread_mutex_init(&_clientStructMutex, NULL);
     _server_list = get_serverList();
-    _it = _server_list.begin();
+    _it1 = (_server_list).begin();
 }
 
 //--------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO
@@ -959,6 +962,9 @@ int DropboxServer::listenAndAccept(){
 int DropboxServer::initialize(int port){
 
     struct sockaddr_in serverAddress;
+    char hostname1[1023] = "";
+    char hostname2[1023] = "";
+    struct hostent *server;
 
     //Inicializa socket (caso não consiga, interrompe execução e retorna erro)
     _serverSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -973,12 +979,38 @@ int DropboxServer::initialize(int port){
     serverAddress.sin_addr.s_addr = INADDR_ANY; // container genérico
     bzero(&(serverAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
                                          // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
+
     //Faz o bind (atribui identidade ao socket)
     if(bind(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
         printf("DropboxServer - Error binding server :: Port %d\n", port);
         return -1;
     }
 
+    _my_hostport.second = port;
+
+    // Adquire IP
+    FILE * file_handler= popen("ifconfig", "r");
+    std::vector<std::string> ips;
+    char *host_name = '\0';
+    char *aux;
+    size_t nr;
+    while(getline(&host_name, &nr, file_handler) > 0 && host_name) {
+        if (host_name = strstr(host_name, "inet ")){
+            host_name+=5;
+            if (host_name = strchr(host_name, ':')) {
+                ++host_name;
+                if (aux = strchr(host_name, ' ')) {
+                    *aux='\0';
+                    ips.push_back(std::string(host_name));
+                }
+            }
+        }
+    }
+    _my_hostport.first = ips[0];
+    pclose(file_handler);
+
+    getHostPort();
+    get_serverListPosition();
     //Recupera as estruturas do servidor
     recoverData();
 
@@ -995,20 +1027,123 @@ void DropboxServer::closeConnection(int socket){
 
 int DropboxServer::getSocket(){ return _serverSocket; }
 
-// adquire lista de servidores
-int DropboxServer::initServerList()
-{
-    //_server_list.push_back(0);
-    //TODO: Erro
+int DropboxServer::connect_server(char* host, int port){
 
+    struct hostent *server;
+    struct sockaddr_in serverAddress;
+    int sock;
+
+    // tenta adquirir IP address (caso não consiga, interrompe execução e retorna erro)
+    server = gethostbyname(host);
+    if(server == NULL){
+        fprintf(stderr, "DropboxServer - Server \'%s\' doesn't exist\n", host);
+        return -1;
+    }
+
+    //Inicializa socket (caso não consiga, interrompe execução e retorna erro)
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(sock == -1){
+        fprintf(stderr, "DropboxServer - Error creating socket\n");
+        return -1;
+    }
+    //Inicializa struct do socket
+    serverAddress.sin_family = AF_INET; // communication domain do socket criado
+    serverAddress.sin_port = htons(port); // porta do socket
+    serverAddress.sin_addr = *((struct in_addr*) server->h_addr); // endereço IP para o socket
+    bzero(&(serverAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
+                                         // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
+    // tente conectar ao servidor (caso não consiga, interrompe execução e retorna erro)
+    if(connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
+        fprintf(stderr, "DropboxServer - Couldn't connect to server at %s on port %d\n", inet_ntoa(serverAddress.sin_addr), ntohs(serverAddress.sin_port));
+        close(sock);
+        return -1;
+    }
+    else
+        fprintf(stderr, "DropboxServer - Connected to server at %s on port %d\n", inet_ntoa(serverAddress.sin_addr), ntohs(serverAddress.sin_port));
+
+    return sock;
 }
 
-// adquire próprio índice na lista de servidores
-int initMyIndex()
-{
-    // pega localhost
+void DropboxServer::connectToServers(){
+    int i = 1;
+    if(_myPosition == 1){ // se é o líder
+        for(_it1 = (_server_list).begin(); _it1 != (_server_list).end(); (_it1)++)
+        {
+            if(_myPosition != i){
+                char *host = (char *) ((*_it1).first).c_str();
+                int port = ((*_it1).second)+1;
+                int sock = connect_server(host, port);
+                if(sock > 0){
+                    _sockets_list.push_back(std::make_pair(sock, 1)); // Conectou ao Socket
+                }
+                else{
+                    _sockets_list.push_back(std::make_pair(sock, 0)); // Não conseguiu Conectar ao Socket
+                }
+            }
+        i++;
+        _leaderSocket = -1; // não precisa de socket de comunicação com sí mesmo
+        }
+    }
+}
 
-    // pega número da porta
+void DropboxServer::connectToLeader(){
+    struct sockaddr_in serverAddress;
+    struct sockaddr_in clientAddress;
+    socklen_t clientLength;
+    int newSocket;
 
-    // compara aos pares da server_list
+    if(_myPosition != 1){ // se não é líder
+        //Inicializa socket (caso não consiga, interrompe execução e retorna erro)
+        _leaderSocket = socket(AF_INET, SOCK_STREAM, 0);
+        if(_leaderSocket == -1){
+            printf("DropboxServer - Error initializing socket\n");
+            return;
+        }
+        int port = _my_hostport.second+1;
+        //Inicializa struct do socket
+        serverAddress.sin_family = AF_INET; // communication domain do socket criado
+        serverAddress.sin_port = htons(port); // porta do socket
+        serverAddress.sin_addr.s_addr = INADDR_ANY; // container genérico
+        bzero(&(serverAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
+                                             // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
+
+        //Faz o bind (atribui identidade ao socket)
+        if(bind(_leaderSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
+            printf("DropboxServer - Error binding server :: Port %d\n", port);
+            return;
+        }
+        printf("DropboxServer - Connection to Leader: port %d\n", port);
+
+
+        clientLength = sizeof(struct sockaddr_in);
+        listen(_leaderSocket, SERVER_BACKLOG);
+            _leaderComSocket = accept(_leaderSocket, (struct sockaddr*) &clientAddress, &clientLength);
+
+        if(_leaderComSocket == -1){
+            printf("DropboxServer - Error accepting connection with leader.\n");
+        }
+    }
+}
+
+int DropboxServer::get_serverListPosition(){
+
+    int i = 1;
+    for(_it1 = (_server_list).begin(); _it1 != (_server_list).end(); (_it1)++)
+    {
+        if(_my_hostport.first == (*_it1).first && _my_hostport.second == (*_it1).second)
+        {
+            _myPosition = i;
+            fprintf(stderr, "DropboxServer - Server Position: %d\n", _myPosition);
+        }
+        i++;
+    }
+    if(_myPosition == 1) fprintf(stderr, "DropboxServer - 'Hey!, I'm the leader!'\n");
+    return _myPosition;
+}
+
+// adquire lista de servidores
+std::pair<std::string, int> DropboxServer::getHostPort(){
+    //_my_hostport;
+    fprintf(stderr, "Server Connected: Host = %s; Port = %d.\n", (_my_hostport.first).c_str(), _my_hostport.second);
+    return _my_hostport;
 }

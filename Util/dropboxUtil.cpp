@@ -222,11 +222,11 @@ std::list<std::pair<std::string, int> > get_serverList()
          server_list.push_back(std::make_pair(host, port));
          // std::cerr << host << " " << port << "\n";
     }
-    //for(it = server_list.begin(); it != server_list.end(); it++)
-    //{
-    //     std::cerr << it->first << " " << it->second << "\n";
-    //}
-    //std::cerr << "\n";
+    /*for(it = server_list.begin(); it != server_list.end(); it++)
+    {
+         std::cerr << it->first << " " << it->second << "\n";
+    }
+    std::cerr << "\n";*/
 
     return server_list;
 }

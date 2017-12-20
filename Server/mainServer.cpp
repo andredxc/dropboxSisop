@@ -19,10 +19,11 @@ int main(int argc, char** argv){
     if(server.initialize(port) < 0){
         return -1;
     }
-
+    server.connectToServers();
     //Esperando por conexões e disparando threads
     while(isRunning){
         fprintf(stderr, "Server is listening.\n");
+        server.connectToLeader();
         comunicationSocket = server.listenAndAccept();
         server.handleConnection(&comunicationSocket);
     }
