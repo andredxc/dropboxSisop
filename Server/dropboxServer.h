@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 #include <list>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #include "../Util/dropboxUtil.h"
 
@@ -42,7 +44,8 @@ class DropboxServer{
         int _serverSocket;
         std::vector<CLIENT> _clients;
         pthread_mutex_t _clientStructMutex;
-
+	SSL *_ssl;
+        SSL_CTX *ctx;
         //
         std::list<std::pair<char*, char*> > _server_list; // lista de servidores por host e porta
         std::list<std::pair<char*, char*> >::iterator _server_it; // iterador da lista
@@ -65,7 +68,7 @@ class DropboxServer{
 
     private:
     //Funções extras
-		    static void* handleConnectionThread(void* args);
+		     static void* handleConnectionThread(void* args);
         bool assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId);
         bool logInClient(int socket, char* userId);
         void logOutClient(int socket, char* userId);
