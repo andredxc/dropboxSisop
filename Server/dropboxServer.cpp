@@ -95,8 +95,6 @@ void DropboxServer::sync_server(int socket, char* userId){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                 if((*_it2).second == 1) if(write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
         }
-        fprintf(stderr, "Estou aque xeroque rromes %d \n", atoi(buffer));
-
         switch (atoi(buffer)) {
             case CP_SYNC_FILE_OK:
                 //Arquivo está sincronizado
@@ -116,13 +114,17 @@ void DropboxServer::sync_server(int socket, char* userId){
                 bzero(buffer, sizeof(buffer));
                 if(read(socket, buffer, sizeof(buffer)) < 0){
                     fprintf(stderr, "Socket %d - Error receiving file name from client\n", socket);
+                    if(_myPosition == 1){
+                        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                            if((*_it2).second == 1) if(write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+                    }
                 }
                 else{
-                    if(_myPosition == 1) receive_file(socket, userId, buffer);
-                }
-                if(_myPosition == 1){
-                    for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
-                        if((*_it2).second == 1) if(write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+                    if(_myPosition == 1){
+                        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                            if((*_it2).second == 1) if(write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+                    }
+                    receive_file(socket, userId, buffer);
                 }
 
                 break;
@@ -136,21 +138,23 @@ void DropboxServer::sync_server(int socket, char* userId){
                     for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                         if((*_it2).second == 1) receiveExpectedIntNoCare((*_it2).first, -1);
                 }
-                fprintf(stderr, "Estou aque xeroque rromes 1%d \n", atoi(buffer));
 
                 //Recebe o nome do arquivo
                 bzero(buffer, sizeof(buffer));
                 if(read(socket, buffer, sizeof(buffer)) < 0){
                     fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
+                    if(_myPosition == 1){
+                        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                            if((*_it2).second == 1) if(write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+                    }
                 }
                 else{
-                    if(_myPosition == 1) send_file(socket, userId, buffer);
+                    if(_myPosition == 1){
+                        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                            if((*_it2).second == 1) if(write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+                    }
+                    send_file(socket, userId, buffer);
                 }
-                if(_myPosition == 1){
-                    for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
-                        if((*_it2).second == 1) if(write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
-                }
-                fprintf(stderr, "Estou aque xeroque rromes 2%d \n", atoi(buffer));
 
                 break;
             case CP_SYNC_FILE_NOT_FOUND:
@@ -428,8 +432,6 @@ void* DropboxServer::handleConnectionThread(void* args){
             for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
                 if((server->getIt2())->second == 1) receiveExpectedIntNoCare((server->getIt2())->first, -1);
         }
-        fprintf(stderr, "Here1");
-
         strncpy(userId, receiveBuffer, sizeof(userId));
     }
 
@@ -446,7 +448,6 @@ void* DropboxServer::handleConnectionThread(void* args){
         free(args);
         return NULL;
     }
-    fprintf(stderr, "Here2");
 
     // Fica no aguardo de mensagens do cliente
     while(isRunning){
@@ -465,7 +466,6 @@ void* DropboxServer::handleConnectionThread(void* args){
             server->closeConnection(socket);
         }
         else{
-            fprintf(stderr, "AA%d", atoi(receiveBuffer));
             switch(atoi(receiveBuffer)){
 
                 case CP_CLIENT_END_CONNECTION:
@@ -473,27 +473,33 @@ void* DropboxServer::handleConnectionThread(void* args){
                     server->closeConnection(socket);
                     break;
                 case CP_CLIENT_SEND_FILE:
+
                     if(!sendInteger(socket, CP_CLIENT_SEND_FILE_ACK)){
                         fprintf(stderr, "Socket %d - Error sending CP_CLIENT_SEND_FILE_ACK\n", socket);
                         continue;
                     }
                     if(server->get_myposition() == 1){
                         for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
-                            if((server->getIt2())->second == 1) receiveExpectedIntNoCare((server->getIt2())->first, -1);
+                            if((server->getIt2())->second == 1) receiveExpectedIntNoCare((server->getIt2())->first, CP_CLIENT_SEND_FILE_ACK);
                     }
 
                     //Recebe o nome do arquivo
                     bzero(receiveBuffer, sizeof(receiveBuffer));
                     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                        if(server->get_myposition() == 1){
+                            for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                                if((server->getIt2())->second == 1) if(write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+                        }
                         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                     }
                     else{
+                        if(server->get_myposition() == 1){
+                            for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                                if((server->getIt2())->second == 1) if(write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+                        }
                         server->receive_file(socket, userId, receiveBuffer);
                     }
-                    if(server->get_myposition() == 1){
-                        for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
-                            if((server->getIt2())->second == 1) if(write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
-                    }
+
                     break;
                 case CP_CLIENT_GET_FILE:
                     if(!sendInteger(socket, CP_CLIENT_GET_FILE_ACK)){
@@ -504,25 +510,22 @@ void* DropboxServer::handleConnectionThread(void* args){
                         for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
                             if((server->getIt2())->second == 1) receiveExpectedIntNoCare((server->getIt2())->first, -1);
                     }
-                    fprintf(stderr, "BB%d", atoi(receiveBuffer));
 
                     //Recebe o nome do arquivo
                     bzero(receiveBuffer, sizeof(receiveBuffer));
                     if(read(socket, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                        if(server->get_myposition() == 1){
+                            for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                                if((server->getIt2())->second == 1) if(write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+                        }
                         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
-
                     }
                     else{
-                        if(server->get_myposition() == 1)
-                            server->send_file(socket, userId, receiveBuffer);
-                            fprintf(stderr, "CC%d", atoi(receiveBuffer));
-                        fprintf(stderr, "DD%d", atoi(receiveBuffer));
-
-                    }
-                    if(server->get_myposition() == 1){
-                        for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
-                            if((server->getIt2())->second == 1) if(write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
-                        fprintf(stderr, "EE%d", atoi(receiveBuffer));
+                        if(server->get_myposition() == 1){
+                            for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                                if((server->getIt2())->second == 1) if(write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+                        }
+                        server->send_file(socket, userId, receiveBuffer);
                     }
 
                     break;
@@ -1333,7 +1336,6 @@ void DropboxServer::connectToServers(){
         }
     }
 }
-
 
 int DropboxServer::get_serverListPosition(){
 
