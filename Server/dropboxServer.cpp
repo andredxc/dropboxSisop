@@ -54,11 +54,19 @@ void DropboxServer::sync_server(int socket, char* userId){
     //Manda as informações de todos os arquivos
     for(i = 0; i < numberOfFiles; i++){
 
+        fprintf(stderr, "Enviando arquivo %d\n", i);
+
         //Envia o nome do arquivo
         bzero(buffer, sizeof(buffer));
         strncpy(buffer, _clients.at(userIndex).file_info[i].name, sizeof(buffer));
         if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error sending file %d name (%s)\n", socket, i+1, buffer);
+        }
+
+        // Ack pelo nome do arquivo
+        if(!receiveExpectedInt(_ssl, CP_CLIENT_GET_FILE_ACK)){
+            fprintf(stderr, "Socket %d - Error receiving CP_CLIENT_GET_FILE_ACK\n", socket);
+            return;
         }
 
         //Envia o M time do arquivo
@@ -73,6 +81,8 @@ void DropboxServer::sync_server(int socket, char* userId){
         if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error receiving answer from client\n", socket);
         }
+
+        fprintf(stderr, "Enviando arquivo %d (2)\n", i);
 
         switch (atoi(buffer)) {
             case CP_SYNC_FILE_OK:

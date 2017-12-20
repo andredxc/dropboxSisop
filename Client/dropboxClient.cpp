@@ -129,6 +129,11 @@ void DropboxClient::sync_client(){
         strncpy(curFileName, buffer, sizeof(curFileName));
         serverFiles.push_back(std::string(curFileName));
 
+        // Envia um ack
+        if(!sendInteger(_ssl, CP_CLIENT_GET_FILE_ACK)){
+            fprintf(stderr, "DropboxClient - Erro sending CP_CLIENT_GET_FILE_ACK\n");
+        }
+
         //Recebe o M time do arquivo
         bzero(buffer, sizeof(buffer));
         if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
