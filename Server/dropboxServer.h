@@ -68,7 +68,7 @@ class DropboxServer{
 
     private:
     //Funções extras
-		     static void* handleConnectionThread(void* args);
+		static void* handleConnectionThread(void* args);
         bool assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId);
         bool logInClient(int socket, char* userId);
         void logOutClient(int socket, char* userId);

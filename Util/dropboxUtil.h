@@ -2,6 +2,7 @@
 #define DROPBOXUTIL_H
 
 #include <stdlib.h>
+#include <openssl/ssl.h>
 #include "../Server/dropboxServer.h"
 
 #define MAXNAME 20
@@ -65,8 +66,8 @@
 #define SERVER_SYNC_DIR_PATH    "./files/serverFiles/"
 #define SERVER_LIST_TXT "./server_host_port.txt"
 
-bool sendInteger(int socket, int message);
-bool receiveExpectedInt(int socket, int message);
+bool sendInteger(SSL* ssl, int message);
+bool receiveExpectedInt(SSL* ssl, int message);
 const char *getFileExtension(const char *filename);
 const char *get_filename_ext(const char *filename);
 void getMTime(const char* filePath, char* buffer, int bufferSize);

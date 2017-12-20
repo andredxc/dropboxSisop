@@ -21,12 +21,12 @@
 #include "dropboxUtil.h"
 
 /* Envia um int */
-bool sendInteger(int socket, int message){
+bool sendInteger(SSL* ssl, int message){
 
     char buffer[CP_MAX_MSG_SIZE];
 
     snprintf(buffer, sizeof(buffer), "%d", message);
-    if(write(socket, buffer, sizeof(buffer)) < 0){
+    if(SSL_write(ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "DropboxUtil - Error sending integer %d\n", message);
         return false;
     }
@@ -34,12 +34,12 @@ bool sendInteger(int socket, int message){
 }
 
 /* Recebe um int e confirma seu valor de acordo com o esperado */
-bool receiveExpectedInt(int socket, int message){
+bool receiveExpectedInt(SSL* ssl, int message){
 
   	char buffer[CP_MAX_MSG_SIZE];
 
   	bzero(buffer, sizeof(buffer));
-  	if(read(socket, buffer, sizeof(buffer)) <= 0){
+  	if(SSL_read(ssl, buffer, sizeof(buffer)) <= 0){
   		fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
 		return false;
   	}
