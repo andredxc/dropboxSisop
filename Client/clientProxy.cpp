@@ -45,9 +45,6 @@ int ClientProxy::initialize_clientConnection(){
         return -1;
     }
 
-    //Recupera as estruturas do cliente
-    //recoverData();
-
     return _clientSocket;
 }
 
@@ -80,30 +77,6 @@ pthread_t *ClientProxy::serverWatcher(){
     pthread_create(messagefromServer, NULL, handle_serverConnection, (void *)this);
     return messagefromServer;
 }
-
-
-// Vê se socket ainda está ativo
-int ClientProxy::check_socket(int socket){
-
-    int error = 0;
-    socklen_t len = sizeof(error);
-    int retval = getsockopt(socket, SOL_SOCKET, SO_ERROR, &error, &len);
-
-    // Verifica se conseguiu condição de erro
-    if (retval != 0) {
-        fprintf(stderr, "ClientProxy - error getting socket error code: %d\n", retval);
-        return 0;
-    }
-    // Verifica se ocorreu erro
-    else if (error != 0) {
-      fprintf(stderr, "ClientProxy - socket error: %d\n", error);
-      return 0;
-    }
-    return 1;
-}
-
-// TODO: if not functional, communicationSocket = proxy_listenAndAccept;
-
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_clientConnection(void *arg){
@@ -141,11 +114,6 @@ void* ClientProxy::handle_clientConnection(void *arg){
     return NULL;
 }
 
-/*
-// Enquanto não for o fim da lista de servidores e não conseguir se conectar, tenta
-
-*/
-
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_serverConnection(void *arg){
 
@@ -157,6 +125,7 @@ void* ClientProxy::handle_serverConnection(void *arg){
     const char * serverChar;
 
     while(isRunning){
+        // Recebe informação do servidor e manda ao cliente
         if(proxy->getServerConnected() == true && proxy->getClientConnected() == true){
             if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
             {

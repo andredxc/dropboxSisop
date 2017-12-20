@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <iostream>
 #include <dirent.h>
 #include "dropboxServer.h"
 #include "../Util/dropboxUtil.h"
@@ -15,6 +16,8 @@
 /*Constructor*/
 DropboxServer::DropboxServer(){
     pthread_mutex_init(&_clientStructMutex, NULL);
+    _server_list = get_serverList();
+    _it = _server_list.begin();
 }
 
 //--------------------------------------------------FUNÇÕES DEFINIDAS NA ESPECIFICAÇÃO

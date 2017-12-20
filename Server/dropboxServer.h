@@ -43,9 +43,14 @@ class DropboxServer{
         std::vector<CLIENT> _clients;
         pthread_mutex_t _clientStructMutex;
 
-        //
-        std::list<std::pair<char*, char*> > _server_list; // lista de servidores por host e porta
-        std::list<std::pair<char*, char*> >::iterator _server_it; // iterador da lista
+        // Lista de Servidores vinda do arquivo txt
+        std::list<std::pair<std::string, int> > _server_list; // lista a receber lista de servidores
+        std::list<std::pair<std::string, int> >::iterator _it1; // iterador da lista, indica servidor conectado
+        // Sockets dos Servidores
+        std::list< int > _sockets_list; // lista a receber lista de servidores
+        std::list< int >::iterator _it2; // lista a receber lista de servidores
+
+
         int _myIndex; // index do servidor no server_list
         int _myID; // ID no algoritmo de seleção
 

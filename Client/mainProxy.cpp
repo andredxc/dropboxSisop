@@ -17,14 +17,8 @@ int main(){
         return -1;
     }
 
-    /// TODO: Conectar a vários servidores, gerenciar mensagens dadas por eles (possivelmente tudo isso tem de ser transferido para o while abaixo)
-
-    // Conecta ao servidor TODO: trocar argumentos para um txt, com lista de servidores
-
-    ///////////////////////////////////////////////////////////
 
     fprintf(stderr, "Server is listening.\n");
-
 
     // TODO: if checkServer == 1 else abaixo
     // Recebe informação do Cliente e manda ao Servidor e vice-versa
