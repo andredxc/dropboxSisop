@@ -24,6 +24,23 @@
 int ClientProxy::initialize_clientConnection(){
 
     struct sockaddr_in proxyAddress;
+    const SSL_METHOD *method;
+
+    //Inicializa SSL
+    SSL_load_error_strings();
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+
+    method = SSLv23_server_method();
+    _ctx = SSL_CTX_new(method);
+    if (_ctx == NULL){
+      ERR_print_errors_fp(stderr);
+      abort();
+    }
+
+    //Carrega certificados
+    SSL_CTX_use_certificate_file(_ctx, "CertFile.pem", SSL_FILETYPE_PEM);
+    SSL_CTX_use_PrivateKey_file(_ctx, "KeyFile.pem", SSL_FILETYPE_PEM);
 
     //Inicializa socket que recebe dados do cliente (caso não consiga, interrompe execução e retorna erro)
     _clientSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -45,9 +62,6 @@ int ClientProxy::initialize_clientConnection(){
         return -1;
     }
 
-    //Recupera as estruturas do cliente
-    //recoverData();
-
     return _clientSocket;
 }
 
@@ -60,12 +74,22 @@ int ClientProxy::listenAndAccept(){
 
     clientLength = sizeof(struct sockaddr_in);
     listen(_clientSocket, SERVER_BACKLOG);
-
     newSocket = accept(_clientSocket, (struct sockaddr*) &clientAddress, &clientLength);
     if(newSocket > 0){
         _isClientConnected = true;
         fprintf(stderr, "ClientProxy - Client connected.\n");
     }
+
+   //Amarra Socket com SSL
+    _sslClient = SSL_new(_ctx);
+    SSL_set_fd(_sslClient, newSocket);
+    int ssl_err = SSL_accept(_sslClient);
+    if(ssl_err <= 0){
+        //Erro aconteceu, fecha o SSL
+        printf("[main] Erro com SSL\n");
+        exit(1);
+    }
+
     return newSocket;
 }
 
@@ -81,30 +105,6 @@ pthread_t *ClientProxy::serverWatcher(){
     return messagefromServer;
 }
 
-
-// Vê se socket ainda está ativo
-int ClientProxy::check_socket(int socket){
-
-    int error = 0;
-    socklen_t len = sizeof(error);
-    int retval = getsockopt(socket, SOL_SOCKET, SO_ERROR, &error, &len);
-
-    // Verifica se conseguiu condição de erro
-    if (retval != 0) {
-        fprintf(stderr, "ClientProxy - error getting socket error code: %d\n", retval);
-        return 0;
-    }
-    // Verifica se ocorreu erro
-    else if (error != 0) {
-      fprintf(stderr, "ClientProxy - socket error: %d\n", error);
-      return 0;
-    }
-    return 1;
-}
-
-// TODO: if not functional, communicationSocket = proxy_listenAndAccept;
-
-
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_clientConnection(void *arg){
 
@@ -118,7 +118,7 @@ void* ClientProxy::handle_clientConnection(void *arg){
     while(isRunning){
         // Recebe informação do cliente e manda ao servidor
         if(proxy->getServerConnected() == true && proxy->getClientConnected() == true){
-            if(read(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0)
+            if(SSL_read(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0)
             {
                 fprintf(stderr, "ClientProxy - Connection with Client died.\n");
                 proxy->close_serverConnection();
@@ -128,7 +128,8 @@ void* ClientProxy::handle_clientConnection(void *arg){
             }
             else{
                 proxy->lockServerSocket();
-                if(write(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0){
+                if(SSL_write(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0){
+                    proxy->close_serverConnection();
                     fprintf(stderr, "ClientProxy - Trying to connect to Server.\n");
                 }
                 proxy->unlockServerSocket();
@@ -141,11 +142,6 @@ void* ClientProxy::handle_clientConnection(void *arg){
     return NULL;
 }
 
-/*
-// Enquanto não for o fim da lista de servidores e não conseguir se conectar, tenta
-
-*/
-
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamada a pthread_create*/
 void* ClientProxy::handle_serverConnection(void *arg){
 
@@ -157,12 +153,14 @@ void* ClientProxy::handle_serverConnection(void *arg){
     const char * serverChar;
 
     while(isRunning){
+        // Recebe informação do servidor e manda ao cliente
         if(proxy->getServerConnected() == true && proxy->getClientConnected() == true){
-            if(read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
+            if(SSL_read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
             {
+                fprintf(stderr, "ClientProxy - problem .\n");
                 proxy->close_serverConnection();
             }
-            else if(write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
+            else if(SSL_write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
                 fprintf(stderr, "ClientProxy - Connection with Client died.\n");
                 proxy->close_serverConnection();
                 proxy->close_clientConnection();
@@ -212,7 +210,7 @@ bool ClientProxy::compare_itEnd(){
 /* Termina a conexão */
 void ClientProxy::close_serverConnection(){
 
-    if(!sendInteger(_serverSocket, CP_CLIENT_END_CONNECTION)){
+    if(!sendInteger(_sslServer, CP_CLIENT_END_CONNECTION)){
         fprintf(stderr, "ClientProxy - Error sending close connection message\n");
     }
     else{
@@ -232,10 +230,6 @@ void ClientProxy::close_clientConnection(){
 void ClientProxy::lock_socket(){ pthread_mutex_lock(&_communicationMutex); }
 void ClientProxy::unlock_socket(){ pthread_mutex_unlock(&_communicationMutex); }
 
-int ClientProxy::getClientSocket(){
-    return _clientSocket;
-}
-
 int ClientProxy::getClientConnected(){
     return _isClientConnected;
 }
@@ -244,19 +238,16 @@ int ClientProxy::getServerConnected(){
     return _isServerConnected;
 }
 
-int ClientProxy::getServerSocket(){
-    return _serverSocket;
+SSL *ClientProxy::getServerSocket(){
+    return _sslServer;
 }
 
 int ClientProxy::get_error(){ return _error; }
 
 void ClientProxy::set_error(int error){ _error = error; }
 
-int ClientProxy::get_communicationSocket(){
-    return _communicationSocket;
-}
-void ClientProxy::set_communicationSocket(int communicationSocket){
-    _communicationSocket = communicationSocket;
+SSL *ClientProxy::get_communicationSocket(){
+    return _sslClient;
 }
 
 void ClientProxy::set_clientThreadState(int thread_state){
@@ -282,6 +273,20 @@ int ClientProxy::connect_server(char* host, int port){
 
     struct hostent *server;
     struct sockaddr_in serverAddress;
+    const SSL_METHOD *method;
+    SSL_CTX *ctx;
+
+    // Inicializa o SSL
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    method = SSLv23_client_method();
+
+    ctx = SSL_CTX_new(method);
+    if (ctx == NULL){
+      ERR_print_errors_fp(stderr);
+      abort();
+    }
 
     // tenta adquirir IP address (caso não consiga, interrompe execução e retorna erro)
     server = gethostbyname(host);
@@ -304,9 +309,31 @@ int ClientProxy::connect_server(char* host, int port){
     bzero(&(serverAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
                                          // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
     // tente conectar ao servidor (caso não consiga, interrompe execução e retorna erro)
-    if(connect(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) >= 0){
-        _isServerConnected = true;
+    if(connect(_serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
+        fprintf(stderr, "ClientProxy - Couldn't connect to server at %s on port %d\n", inet_ntoa(serverAddress.sin_addr), ntohs(serverAddress.sin_port));
+        close(_serverSocket);
+        return -1;
     }
+    fprintf(stderr, "ClientProxy - Connected to Server at %s on port %d\n", inet_ntoa(serverAddress.sin_addr), ntohs(serverAddress.sin_port));
+
+    _sslServer = SSL_new(ctx);
+    SSL_set_fd(_sslServer,_serverSocket);
+    if(SSL_connect(_sslServer) == -1){
+        ERR_print_errors_fp(stderr);
+        return -1;
+    }
+    X509 *cert;
+    char *line;
+    cert = SSL_get_peer_certificate(_sslServer);
+    if (cert != NULL){
+        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+        printf("\nSubject: %s\n", line);
+        free(line);
+        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+        printf("Issuer: %s\n\n", line);
+    }
+    _isServerConnected = true;
+
     return _serverSocket;
 }
 

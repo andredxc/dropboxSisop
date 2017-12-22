@@ -2,18 +2,18 @@ SERVER_DIR =  ./Server/
 CLIENT_DIR = ./Client/
 UTIL_DIR = ./Util/
 
-all: dropboxUtil.o dropboxClient.o dropboxServer.o #clientProxy.o
+all: dropboxUtil.o dropboxClient.o dropboxServer.o clientProxy.o
 	g++ -o client $(CLIENT_DIR)mainClient.cpp dropboxClient.o dropboxUtil.o -lpthread -lssl -lcrypto
 	g++ -o server $(SERVER_DIR)mainServer.cpp dropboxServer.o dropboxUtil.o -lpthread -lssl -lcrypto
+	g++ -o proxy $(CLIENT_DIR)mainProxy.cpp clientProxy.o dropboxUtil.o -lpthread -lssl -lcrypto
 	mv dropboxServer.o $(SERVER_DIR)
 	mv dropboxClient.o $(CLIENT_DIR)
 	mv dropboxUtil.o $(UTIL_DIR)
-	#mv clientProxy.o $(CLIENT_DIR)
-	#g++ -o proxy $(CLIENT_DIR)mainProxy.cpp clientProxy.o dropboxUtil.o -lpthread
+	mv clientProxy.o $(CLIENT_DIR)
 
 debug: dropboxClientDebug dropboxServerDebug dropboxUtilDebug clientProxy.o
 	g++ -o client $(CLIENT_DIR)mainClient.cpp dropboxClient.o dropboxUtil.o -lpthread -lssl -lcrypto
-	g++ -o proxy $(CLIENT_DIR)mainProxy.cpp clientProxy.o dropboxUtil.o -lpthread
+	g++ -o proxy $(CLIENT_DIR)mainProxy.cpp clientProxy.o dropboxUtil.o -lpthread -lssl -lcrypto
 	g++ -o server $(SERVER_DIR)mainServer.cpp dropboxServer.o dropboxUtil.o -lpthread -lssl -lcrypto
 	mv dropboxServer.o $(SERVER_DIR)
 	mv dropboxClient.o $(CLIENT_DIR)

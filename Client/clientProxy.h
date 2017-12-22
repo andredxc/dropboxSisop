@@ -27,6 +27,10 @@ class ClientProxy{
         pthread_mutex_t _serverMutex;
         int _communicationSocket;
 
+        SSL *_sslClient;
+        SSL *_sslServer;
+        SSL_CTX *_ctx;
+
         // Socket de comunicação com o servidor
         int _serverSocket;
         std::vector<CLIENT> _clients;
@@ -73,8 +77,9 @@ class ClientProxy{
         void set_serverThreadState(int thread_state);
         int get_serverThreadState();
 
-        int getServerSocket();
-        int getClientSocket();
+        SSL *getServerSocket();
+        SSL *get_communicationSocket();
+
         pthread_t *clientWatcher();
         pthread_t *serverWatcher();
         static void* handle_clientConnection(void *arg);
@@ -82,8 +87,6 @@ class ClientProxy{
         void lock_socket();
         void unlock_socket();
         int check_socket(int socket);
-        int get_communicationSocket();
-        void set_communicationSocket(int communicationSocket);
         void closeConnection(int socket);
         void close_clientConnection();
         void close_serverConnection();

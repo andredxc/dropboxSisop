@@ -44,13 +44,19 @@ class DropboxServer{
         int _serverSocket;
         std::vector<CLIENT> _clients;
         pthread_mutex_t _clientStructMutex;
-	SSL *_ssl;
+	      SSL *_ssl;
         SSL_CTX *ctx;
         //
-        std::list<std::pair<char*, char*> > _server_list; // lista de servidores por host e porta
-        std::list<std::pair<char*, char*> >::iterator _server_it; // iterador da lista
-        int _myIndex; // index do servidor no server_list
-        int _myID; // ID no algoritmo de seleção
+        // Lista de Servidores vinda do arquivo txt
+        std::list<std::pair<std::string, int> > _server_list; // lista a receber lista de servidores
+        std::list<std::pair<std::string, int> >::iterator _it1; // iterador da lista, indica servidor conectado
+        // Sockets dos Servidores
+        std::list<std::pair<int,int> > _sockets_list; // lista a receber lista de servidores
+        std::list<std::pair<int,int> >::iterator _it2; // lista a receber lista de servidores
+        int _leaderSocket; // socket de comunicação com líder
+
+        std::pair<std::string, int> _my_hostport; // host e port do atual servidor
+        int _myPosition;
 
     public:
         DropboxServer();
@@ -65,6 +71,12 @@ class DropboxServer{
         void closeConnection(int socket);
 
         int getSocket();
+
+        std::pair<std::string, int> getHostPort();
+        int get_serverListPosition();
+        int connect_server(char* host, int port);
+        void connectToServers();
+        int get_myposition();
 
     private:
     //Funções extras
@@ -81,7 +93,6 @@ class DropboxServer{
         void lockFile(int socket, char* userId);
         void unlockFile(int socket, char* userId);
 
-        // TODO 08/12 (Felipe Führ)
         int initServerList(); // lista de servidores
         int initMyIndex(); // adquire próprio índice na lista de servidores
 
@@ -89,9 +100,13 @@ class DropboxServer{
         int sendElection(); // manda mensagem de eleição à todos os elementos posteriores à ele na lista de servidores
         int sendCoordinator(); // manda mensagem coordinator
 
-        // TODO data posterior
-        // Função que transfere alterações aos backups
-        // Função que transfere todo o servidor para o host e porta que conversam com o cliente
+        // Servers
+        std::list<std::pair<int,int> >::iterator getIt2();
+        void incrementIt2();
+        void resetIt2();
+        std::list<std::pair<int,int> >::iterator endIt2();
+        void setIt22(int val);
+
 
 };
 

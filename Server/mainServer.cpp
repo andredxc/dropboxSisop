@@ -20,6 +20,7 @@ int main(int argc, char** argv){
         return -1;
     }
 
+    server.connectToServers();
     //Esperando por conexões e disparando threads
     while(isRunning){
         fprintf(stderr, "Server is listening.\n");
