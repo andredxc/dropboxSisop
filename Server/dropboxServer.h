@@ -51,8 +51,8 @@ class DropboxServer{
         std::list<std::pair<std::string, int> > _server_list; // lista a receber lista de servidores
         std::list<std::pair<std::string, int> >::iterator _it1; // iterador da lista, indica servidor conectado
         // Sockets dos Servidores
-        std::list<std::pair<int,int> > _sockets_list; // lista a receber lista de servidores
-        std::list<std::pair<int,int> >::iterator _it2; // lista a receber lista de servidores
+        std::list<std::pair<SSL *,int> > _sockets_list; // lista a receber lista de servidores
+        std::list<std::pair<SSL *,int> >::iterator _it2; // lista a receber lista de servidores
         int _leaderSocket; // socket de comunicação com líder
 
         std::pair<std::string, int> _my_hostport; // host e port do atual servidor
@@ -74,13 +74,13 @@ class DropboxServer{
 
         std::pair<std::string, int> getHostPort();
         int get_serverListPosition();
-        int connect_server(char* host, int port);
+        SSL *connect_server(char* host, int port);
         void connectToServers();
         int get_myposition();
 
     private:
     //Funções extras
-		static void* handleConnectionThread(void* args);
+		    static void* handleConnectionThread(void* args);
         bool assignNewFile(char* fileName, char* fileMTime, int fileSize, char* userId);
         bool logInClient(int socket, char* userId);
         void logOutClient(int socket, char* userId);
@@ -101,10 +101,10 @@ class DropboxServer{
         int sendCoordinator(); // manda mensagem coordinator
 
         // Servers
-        std::list<std::pair<int,int> >::iterator getIt2();
+        std::list<std::pair<SSL *,int> >::iterator getIt2();
         void incrementIt2();
         void resetIt2();
-        std::list<std::pair<int,int> >::iterator endIt2();
+        std::list<std::pair<SSL *,int> >::iterator endIt2();
         void setIt22(int val);
 
 

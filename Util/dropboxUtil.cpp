@@ -43,7 +43,8 @@ bool receiveExpectedInt(SSL* ssl, int message){
   		fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
 		return false;
   	}
-  	if(atoi(buffer) != message){
+    if(message == -1) return true;
+  	else if(atoi(buffer) != message){
   		fprintf(stderr, "DropboxUtil - Int received wasn't expected (received: %s(%d), expected: %s(%d))\n", getCPMessage(atoi(buffer)), atoi(buffer), getCPMessage(message), message);
 	    return false;
   	}

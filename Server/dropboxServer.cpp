@@ -56,6 +56,10 @@ void DropboxServer::sync_server(int socket, char* userId){
         fprintf(stderr, "Socket %d - Error sending number of files\n", socket);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
 
     //Manda as informações de todos os arquivos
     for(i = 0; i < numberOfFiles; i++){
@@ -68,11 +72,19 @@ void DropboxServer::sync_server(int socket, char* userId){
         if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error sending file %d name (%s)\n", socket, i+1, buffer);
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) if(SSL_read((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+        }
 
         // Ack pelo nome do arquivo
         if(!receiveExpectedInt(_ssl, CP_CLIENT_GET_FILE_ACK)){
             fprintf(stderr, "Socket %d - Error receiving CP_CLIENT_GET_FILE_ACK\n", socket);
             return;
+        }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
         }
 
         //Envia o M time do arquivo
@@ -81,11 +93,19 @@ void DropboxServer::sync_server(int socket, char* userId){
         if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error sending file %d M time (%s)\n", socket, i+1, buffer);
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) if(SSL_read((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+        }
 
         //Espera resposta indicando o que fazer
         bzero(buffer, sizeof(buffer));
         if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error receiving answer from client\n", socket);
+        }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
         }
 
         fprintf(stderr, "Enviando arquivo %d (2)\n", i);
@@ -102,10 +122,15 @@ void DropboxServer::sync_server(int socket, char* userId){
                 }
                 //Espera pelo nome do arquivo
                 bzero(buffer, sizeof(buffer));
-                if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
+                int recv_file;
+                if((recv_file = SSL_read(_ssl, buffer, sizeof(buffer))) < 0){
                     fprintf(stderr, "Socket %d - Error receiving file name from client\n", socket);
                 }
-                else{
+                if(_myPosition == 1){
+                    for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                        if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+                }
+                if(recv_file >= 0){
                     receive_file(socket, userId, buffer);
                 }
                 break;
@@ -115,12 +140,22 @@ void DropboxServer::sync_server(int socket, char* userId){
                     fprintf(stderr, "Socket %d - Error sending CP_CLIENT_GET_FILE_ACK\n", socket);
                     continue;
                 }
+                if(_myPosition == 1){
+                    for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                        if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+                }
+
                 //Recebe o nome do arquivo
                 bzero(buffer, sizeof(buffer));
-                if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
+                int get_file;
+                if((get_file = SSL_read(_ssl, buffer, sizeof(buffer))) < 0){
                     fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                 }
-                else{
+                if(_myPosition == 1){
+                    for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                        if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+                }
+                if(get_file >= 0){
                     send_file(socket, userId, buffer);
                 }
                 break;
@@ -155,10 +190,19 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
         fprintf(stderr, "Socket %d - Error receiving file size\n", socket);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+    }
+
     fileSize = atoi(buffer);
     if(!sendInteger(_ssl, CP_CLIENT_SEND_FILE_SIZE_ACK)){
         fprintf(stderr, "Socket %d - Error sending file size ack\n", socket);
         return;
+    }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
     }
 
     // Recebe o arquivo
@@ -171,9 +215,18 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
         if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error receiving part of file %d\n", socket, i+1);
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+        }
+
         fwrite((void*) buffer, sizeToReceive, 1, newFile);
         if(!sendInteger(_ssl, CP_FILE_PART_RECEIVED)){
             fprintf(stderr, "Socket %d - Error sending ack for part %d of %d\n", socket, i+1, iterations);
+        }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
         }
         sizeReceived += sizeToReceive;
     }
@@ -183,9 +236,18 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
         fprintf(stderr, "Socket %d - Error receiving CP_SEND_FILE_COMPLETE\n", socket);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) sendInteger((*_it2).first, CP_SEND_FILE_COMPLETE);
+    }
+
     if(!sendInteger(_ssl, CP_SEND_FILE_COMPLETE_ACK)){
         fprintf(stderr, "Socket %d - Error sending CP_SEND_FILE_COMPLETE_ACK\n", socket);
         return;
+    }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
     }
 
     //Recebe o M time do arquivo no cliente
@@ -193,6 +255,11 @@ void DropboxServer::receive_file(int socket, char* userId, char* file){
     if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving file's M time\n", socket);
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+    }
+
     //Preenche as estruturas internas do servidor
     if(!assignNewFile(file, buffer, fileSize, userId)){
         fprintf(stderr, "Socket %d - Error assigning new file \'%s\'\n", socket, file);
@@ -219,12 +286,21 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
             fprintf(stderr, "DropboxServer - Error confirming file existance\n");
             return;
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+        }
     }
     // Envia confirmação da existência do arquivo
     if(!sendInteger(_ssl, CP_CLIENT_GET_FILE_EXISTS)){
         fprintf(stderr, "DropboxServer - Error confirming file existance\n");
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
+
     if(file == NULL) return;
 
     // Descobre o tamanho do arquivo
@@ -237,10 +313,19 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         fclose(file);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
+
     if(!receiveExpectedInt(_ssl, CP_CLIENT_GET_FILE_SIZE_ACK)){
         fprintf(stderr, "DropboxServer - Error receiving size confirmation from client\n");
         fclose(file);
         return;
+    }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) sendInteger((*_it2).first, CP_CLIENT_GET_FILE_SIZE_ACK);
     }
 
     // Começa o envio do arquivo
@@ -254,8 +339,17 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "DropboxServer - Error sending part %d of file\n", i);
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) SSL_read((*_it2).first, buffer, sizeof(buffer));
+        }
+
         if(!receiveExpectedInt(_ssl, CP_FILE_PART_RECEIVED)){
             fprintf(stderr, "DropboxServer - Error receving ack for part %d of %d\n", i+1, iterations);
+        }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) sendInteger((*_it2).first, CP_FILE_PART_RECEIVED);
         }
         sizeSent += sizeToSend;
     }
@@ -266,11 +360,19 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
         fprintf(stderr, "DropboxServer - Error sending file send completion message\n");
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
 
     // Recebe ack
     if(!receiveExpectedInt(_ssl, CP_SEND_FILE_COMPLETE_ACK)){
         fprintf(stderr, "DropboxServer - Error receiving ack for file completion\n");
         return;
+    }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) sendInteger((*_it2).first, CP_SEND_FILE_COMPLETE_ACK);
     }
 
     fprintf(stderr, "Socket %d - File \'%s\' was sent\n", socket, basename(filePath));
@@ -280,7 +382,7 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create*/
 pthread_t *DropboxServer::handleConnection(int* socket){
 
-	pthread_t comunicationThread;
+	  pthread_t comunicationThread;
     struct serverAndSocket* arg = (struct serverAndSocket*) malloc(sizeof(struct serverAndSocket));
 
     arg->socket = socket;
@@ -311,22 +413,36 @@ void* DropboxServer::handleConnectionThread(void* args){
         free(args);
         return NULL;
     }
+    if(server->get_myposition() == 1){
+        for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+            if((server->getIt2())->second == 1) if(SSL_write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+    }
+
     // Valida o userId recebido
     if(server->logInClient(socket, receiveBuffer)){
-		// Logou com sucesso
-	    fprintf(stderr, "Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
-	    if(!sendInteger(server->_ssl, CP_LOGIN_SUCCESSFUL))
+  		// Logou com sucesso
+  	    fprintf(stderr, "Socket %d - User \"%s\" just logged in\n", socket, receiveBuffer);
+  	    if(!sendInteger(server->_ssl, CP_LOGIN_SUCCESSFUL))
         {
             fprintf(stderr, "Socket %d - User \"%s\" error\n", socket, receiveBuffer);
             return NULL;
+        }
+        if(server->get_myposition() == 1){
+            for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                if((server->getIt2())->second == 1) receiveExpectedInt((server->getIt2())->first, -1);
         }
         strncpy(userId, receiveBuffer, sizeof(userId));
     }
 
     else{
 		// Falha no login
-		fprintf(stderr, "Socket %d - Error logging user %s in\n", socket, receiveBuffer);
+		    fprintf(stderr, "Socket %d - Error logging user %s in\n", socket, receiveBuffer);
         sendInteger(server->_ssl, CP_LOGIN_FAILED);
+        if(server->get_myposition() == 1){
+          for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                if((server->getIt2())->second == 1) receiveExpectedInt((server->getIt2())->first, -1);
+        }
+
         server->closeConnection(socket);
         free(args);
         return NULL;
@@ -335,7 +451,13 @@ void* DropboxServer::handleConnectionThread(void* args){
     while(isRunning){
         // Recebe comando do cliente
         bzero(receiveBuffer, sizeof(receiveBuffer));
+
         returnVal = SSL_read(server->_ssl, receiveBuffer, sizeof(receiveBuffer));
+        if(server->get_myposition() == 1){
+            for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                if((server->getIt2())->second == 1) if(SSL_write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+        }
+
         if(returnVal < 0){
             fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
         }
@@ -354,12 +476,22 @@ void* DropboxServer::handleConnectionThread(void* args){
                         fprintf(stderr, "Socket %d - Error sending CP_CLIENT_SEND_FILE_ACK\n", socket);
                         continue;
                     }
+                    if(server->get_myposition() == 1){
+                        for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                            if((server->getIt2())->second == 1) receiveExpectedInt((server->getIt2())->first, CP_CLIENT_SEND_FILE_ACK);
+                    }
+
                     //Recebe o nome do arquivo
                     bzero(receiveBuffer, sizeof(receiveBuffer));
-                    if(SSL_read(server->_ssl, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                    int recv_file;
+                    if((recv_file = SSL_read(server->_ssl, receiveBuffer, sizeof(receiveBuffer))) < 0){
                         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                     }
-                    else{
+                    if(server->get_myposition() == 1){
+                        for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                            if((server->getIt2())->second == 1) if(SSL_write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+                    }
+                    if(recv_file >= 0){
                         server->receive_file(socket, userId, receiveBuffer);
                     }
                     break;
@@ -370,10 +502,15 @@ void* DropboxServer::handleConnectionThread(void* args){
                     }
                     //Recebe o nome do arquivo
                     bzero(receiveBuffer, sizeof(receiveBuffer));
-                    if(SSL_read(server->_ssl, receiveBuffer, sizeof(receiveBuffer)) < 0){
+                    int get_file;
+                    if((get_file = SSL_read(server->_ssl, receiveBuffer, sizeof(receiveBuffer))) < 0){
                         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
                     }
-                    else{
+                    if(server->get_myposition() == 1){
+                        for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                            if((server->getIt2())->second == 1) if(SSL_write((server->getIt2())->first, receiveBuffer, sizeof(receiveBuffer)) < 0) server->setIt22(0);
+                    }
+                    if(get_file >= 0){
                         server->send_file(socket, userId, receiveBuffer);
                     }
                     break;
@@ -395,6 +532,10 @@ void* DropboxServer::handleConnectionThread(void* args){
                 case 0:
                     fprintf(stderr, "Connection with Client not available. Trying to connect %d\n", atoi(receiveBuffer));
                     sendInteger(server->_ssl, CP_LOGIN_FAILED);
+                    if(server->get_myposition() == 1){
+                        for(server->resetIt2(); server->getIt2() != server->endIt2(); server->incrementIt2())
+                            if((server->getIt2())->second == 1) receiveExpectedInt((server->getIt2())->first, -1);
+                    }
                     server->closeConnection(socket);
                     free(args);
                     return NULL;
@@ -675,12 +816,20 @@ void DropboxServer::deleteFile(int socket, char* userId){
         fprintf(stderr, "Socket %d - Error sending CP_CLIENT_DELETE_FILE_ACK\n", socket);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
 
     //Recebe o nome do arquivo a ser deletado
     bzero(buffer, sizeof(buffer));
     if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving file name\n", socket);
         return;
+    }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
     }
     snprintf(filePath, sizeof(filePath), "%ssync_dir_%s/%s", SERVER_SYNC_DIR_PATH, userId, buffer);
 
@@ -747,12 +896,20 @@ void DropboxServer::listServer(int socket, char* userId){
         fprintf(stderr, "Socket %d - Error sending CP_LIST_SERVER_ACK\n", socket);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
 
     //Envia o número de arquivos
     numberOfFiles = countUserFiles(userId);
     if(!sendInteger(_ssl, numberOfFiles)){
         fprintf(stderr, "Socket %d - Error sending number of files\n", socket);
         return;
+    }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
     }
 
     //Abre o diretório do sync dir
@@ -789,10 +946,18 @@ void DropboxServer::listServer(int socket, char* userId){
             if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
                 fprintf(stderr, "Socket %d - Error sending file name\n", socket);
             }
+            if(_myPosition == 1){
+                for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                    if((*_it2).second == 1) if(SSL_read((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+            }
 
             // Recebe ack pelo nome do arquivo
             if(!receiveExpectedInt(_ssl, CP_LIST_SERVER_FILENAME_ACK)){
                 fprintf(stderr, "Socket %d - Error getting ack for file name \'%s\'\n", socket, entry->d_name);
+            }
+            if(_myPosition == 1){
+                for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                    if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
             }
 
             //Envia tamanho, ATime, MTime e CTime na mesma string
@@ -801,10 +966,18 @@ void DropboxServer::listServer(int socket, char* userId){
             if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
                 fprintf(stderr, "Socket %d - Error file \'%s\' information\n", socket, entry->d_name);
             }
+            if(_myPosition == 1){
+                for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                    if((*_it2).second == 1) if(SSL_read((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+            }
 
             //Espera pela confirmação do cliente
             if(!receiveExpectedInt(_ssl, CP_LIST_SERVER_FILE_OK)){
                 fprintf(stderr, "Socket %d - Error getting ack for file \'%s\'\n", socket, entry->d_name);
+            }
+            if(_myPosition == 1){
+                for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                    if((*_it2).second == 1) sendInteger((*_it2).first, CP_LIST_SERVER_FILE_OK);
             }
         }
     }
@@ -823,12 +996,22 @@ void DropboxServer::lockFile(int socket, char* userId){
         fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_LOCK_ACK\n");
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
+
     //Recebe o nome do arquivo
     bzero(buffer, sizeof(buffer));
     if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving name of file to be locked\n", socket);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+    }
+
     //Executa o algoritmo do token
     pthread_mutex_lock(&_clientStructMutex);
     userIndex = findUserIndex(userId);
@@ -843,6 +1026,11 @@ void DropboxServer::lockFile(int socket, char* userId){
             pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+        }
+
         return;
     }
     //Verifica se o cliente está na lista de locks
@@ -872,6 +1060,11 @@ void DropboxServer::lockFile(int socket, char* userId){
             pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+        }
+
     }
     else{
         //O cliente atual deve esperar o lock ser liberado, envia o tamanho da lista
@@ -880,6 +1073,11 @@ void DropboxServer::lockFile(int socket, char* userId){
             pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+        }
+
     }
     pthread_mutex_unlock(&_clientStructMutex);
 }
@@ -896,12 +1094,22 @@ void DropboxServer::unlockFile(int socket, char* userId){
         fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_UNLOCK_ACK\n");
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
+
     //Recebe o nome do arquivo
     bzero(buffer, sizeof(buffer));
     if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
         fprintf(stderr, "Socket %d - Error receiving name of file to be unlocked\n", socket);
         return;
     }
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
+    }
+
     //Procura pelo arquivo nas estruturas do servidor
     pthread_mutex_lock(&_clientStructMutex);
     userIndex = findUserIndex(userId);
@@ -916,6 +1124,11 @@ void DropboxServer::unlockFile(int socket, char* userId){
             pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+        }
+
         return;
     }
     //Remove o lock do arquivo
@@ -934,6 +1147,11 @@ void DropboxServer::unlockFile(int socket, char* userId){
             pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+        }
+
     }
     else{
         //Erro na busca do lock
@@ -941,6 +1159,10 @@ void DropboxServer::unlockFile(int socket, char* userId){
             fprintf(stderr, "DropboxClient - Error sending CP_CLIENT_GET_FILE_UNLOCK_FAIL\n");
             pthread_mutex_unlock(&_clientStructMutex);
             return;
+        }
+        if(_myPosition == 1){
+            for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+                if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
         }
     }
     //Imprime na tela a lista de espera para o arquivo
@@ -953,7 +1175,7 @@ void DropboxServer::unlockFile(int socket, char* userId){
     pthread_mutex_unlock(&_clientStructMutex);
 }
 
-/*Faz liste(), accept() e retorna o socket de comunicação*/
+/*Faz listen(), accept() e retorna o socket de comunicação*/
 int DropboxServer::listenAndAccept(){
 
     struct sockaddr_in clientAddress;
@@ -971,7 +1193,7 @@ int DropboxServer::listenAndAccept(){
     _ssl = SSL_new(ctx);
     SSL_set_fd(_ssl,newSocket);
     int ssl_err = SSL_accept(_ssl);
-    if(ssl_err <= 0){
+    if(ssl_err < 0){
         //Erro aconteceu, fecha o SSL
         printf("[main] Erro com SSL\n");
         exit(1);
@@ -1060,7 +1282,7 @@ void DropboxServer::closeConnection(int socket){
 
 int DropboxServer::getSocket(){ return _serverSocket; }
 
-int DropboxServer::connect_server(char* host, int port){
+SSL *DropboxServer::connect_server(char* host, int port){
 
     struct hostent *server;
     struct sockaddr_in serverAddress;
@@ -1105,7 +1327,7 @@ void DropboxServer::connectToServers(){
             if(_myPosition != i){
                 char *host = (char *) ((*_it1).first).c_str();
                 int port = ((*_it1).second);
-                int sock = connect_server(host, port);
+                SSL *sock = connect_server(host, port);
                 if(sock > 0){
                     _sockets_list.push_back(std::make_pair(sock, 1)); // Conectou ao Socket
                 }
@@ -1135,7 +1357,7 @@ int DropboxServer::get_serverListPosition(){
     return _myPosition;
 }
 
-std::list<std::pair<int,int> >::iterator DropboxServer::getIt2(){
+std::list<std::pair<SSL *,int> >::iterator DropboxServer::getIt2(){
     return _it2;
 }
 
@@ -1149,7 +1371,7 @@ void DropboxServer::incrementIt2(){
 void DropboxServer::resetIt2(){
     _it2 = _sockets_list.begin();
 }
-std::list<std::pair<int,int> >::iterator DropboxServer::endIt2(){
+std::list<std::pair<SSL *,int> >::iterator DropboxServer::endIt2(){
     return _sockets_list.end();
 }
 
