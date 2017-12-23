@@ -1287,19 +1287,33 @@ SSL *DropboxServer::connect_server(char* host, int port){
     struct hostent *server;
     struct sockaddr_in serverAddress;
     int sock;
+    const SSL_METHOD *method;
+    SSL_CTX *ctx;
+
+    // Inicializa o SSL
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    method = SSLv23_client_method();
+
+    ctx = SSL_CTX_new(method);
+    if (ctx == NULL){
+      ERR_print_errors_fp(stderr);
+      abort();
+    }
 
     // tenta adquirir IP address (caso não consiga, interrompe execução e retorna erro)
     server = gethostbyname(host);
     if(server == NULL){
         fprintf(stderr, "DropboxServer - Server \'%s\' doesn't exist\n", host);
-        return -1;
+        return NULL;
     }
 
     //Inicializa socket (caso não consiga, interrompe execução e retorna erro)
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if(sock == -1){
         fprintf(stderr, "DropboxServer - Error creating socket\n");
-        return -1;
+        return NULL;
     }
     //Inicializa struct do socket
     serverAddress.sin_family = AF_INET; // communication domain do socket criado
@@ -1311,12 +1325,29 @@ SSL *DropboxServer::connect_server(char* host, int port){
     if(connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
         fprintf(stderr, "DropboxServer - Couldn't connect to server at %s on port %d\n", inet_ntoa(serverAddress.sin_addr), ntohs(serverAddress.sin_port));
         close(sock);
-        return -1;
+        return NULL;
     }
     else
         fprintf(stderr, "DropboxServer - Connected to server at %s on port %d\n", inet_ntoa(serverAddress.sin_addr), ntohs(serverAddress.sin_port));
 
-    return sock;
+    SSL *ssl = SSL_new(ctx);
+    SSL_set_fd(ssl,sock);
+    if(SSL_connect(ssl) == -1){
+        ERR_print_errors_fp(stderr);
+        return NULL;
+    }
+    X509 *cert;
+    char *line;
+    cert = SSL_get_peer_certificate(ssl);
+    if (cert != NULL){
+        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+        printf("\nSubject: %s\n", line);
+        free(line);
+        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+        printf("Issuer: %s\n\n", line);
+    }
+
+    return ssl;
 }
 
 void DropboxServer::connectToServers(){
@@ -1328,7 +1359,7 @@ void DropboxServer::connectToServers(){
                 char *host = (char *) ((*_it1).first).c_str();
                 int port = ((*_it1).second);
                 SSL *sock = connect_server(host, port);
-                if(sock > 0){
+                if(sock != NULL){
                     _sockets_list.push_back(std::make_pair(sock, 1)); // Conectou ao Socket
                 }
                 else{
