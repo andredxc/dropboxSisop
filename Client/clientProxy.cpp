@@ -127,12 +127,10 @@ void* ClientProxy::handle_clientConnection(void *arg){
                 pthread_exit(NULL);
             }
             else{
-                proxy->lockServerSocket();
                 if(SSL_write(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0){
                     proxy->close_serverConnection();
                     fprintf(stderr, "ClientProxy - Trying to connect to Server.\n");
                 }
-                proxy->unlockServerSocket();
             }
         }
         if(proxy->get_error()){
@@ -160,13 +158,15 @@ void* ClientProxy::handle_serverConnection(void *arg){
                 fprintf(stderr, "ClientProxy - problem .\n");
                 proxy->close_serverConnection();
             }
-            else if(SSL_write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
-                fprintf(stderr, "ClientProxy - Connection with Client died.\n");
-                proxy->close_serverConnection();
-                proxy->close_clientConnection();
-                proxy->set_error(1);
-                pthread_exit(NULL);
-                return NULL;
+            else{
+                if(SSL_write(proxy->get_communicationSocket(), buffer, sizeof(buffer)) <= 0){
+                    fprintf(stderr, "ClientProxy - Connection with Client died.\n");
+                    proxy->close_serverConnection();
+                    proxy->close_clientConnection();
+                    proxy->set_error(1);
+                    pthread_exit(NULL);
+                    return NULL;
+                }
             }
         }
         else if(proxy->getClientConnected() == true){

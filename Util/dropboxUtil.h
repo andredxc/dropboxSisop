@@ -58,6 +58,7 @@
 #define  CP_CLIENT_GET_FILE_NOEXISTS 36
 #define  CP_LIST_SERVER_FILENAME_ACK 37
 
+#define CP_FIND_LEADER 38
 
 #define CP_MAX_MSG_SIZE  				256
 
@@ -80,5 +81,6 @@ time_t convertTimeString(const char* timeString);
 time_t getMTimeValue(const char* filePath);
 const char* getCPMessage(int cpCode);
 std::list<std::pair<std::string, int> > get_serverList();
+void send_file(int socket, char* userId);
 
 #endif

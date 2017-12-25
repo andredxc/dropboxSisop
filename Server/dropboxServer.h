@@ -64,6 +64,8 @@ class DropboxServer{
         void sync_server(int socket, char* userId);
         void receive_file(int socket, char* userId, char* file);
         void send_file(int socket, char* userId, char* file);
+
+        void findLeader(int socket, char *userId);
     //Funções extras
         int initialize(int port);
         pthread_t *handleConnection(int* socket);
@@ -107,6 +109,7 @@ class DropboxServer{
         std::list<std::pair<SSL *,int> >::iterator endIt2();
         void setIt22(int val);
 
+        int justListen();
 
 };
 
