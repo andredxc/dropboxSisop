@@ -56,6 +56,7 @@ class DropboxServer{
         int _leaderSocket; // socket de comunicação com líder
 
         std::pair<std::string, int> _my_hostport; // host e port do atual servidor
+        bool _imLeader;
         int _myPosition;
 
     public:
@@ -79,6 +80,7 @@ class DropboxServer{
         SSL *connect_server(char* host, int port);
         void connectToServers();
         int get_myposition();
+        int get_imleader();
 
     private:
     //Funções extras
