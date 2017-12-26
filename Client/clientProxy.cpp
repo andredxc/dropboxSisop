@@ -71,6 +71,7 @@ int ClientProxy::listenAndAccept(){
     struct sockaddr_in clientAddress;
     socklen_t clientLength;
     int newSocket;
+    char receiveBuffer[CP_MAX_MSG_SIZE];
 
     clientLength = sizeof(struct sockaddr_in);
     listen(_clientSocket, SERVER_BACKLOG);
@@ -89,6 +90,21 @@ int ClientProxy::listenAndAccept(){
         printf("[main] Erro com SSL\n");
         exit(1);
     }
+
+    /// Loga com o cliente
+
+    fprintf(stderr, "DropboxServer - Starting thread with comunication socket = %d\n", newSocket);
+    // Recebe o userId do cliente
+    bzero(receiveBuffer, sizeof(receiveBuffer));
+    if(SSL_read(_sslClient, receiveBuffer, sizeof(receiveBuffer)) <= 0){
+        fprintf(stderr, "Socket %d - Error receiving userId\n", newSocket);
+        close_clientConnection();
+        return NULL;
+    }
+    // adquire nome para usos futuros (novas conexões, por exemplo)
+    _clientName = std::string(receiveBuffer);
+
+    fprintf(stderr, "User %s logging in \n", receiveBuffer);
 
     return newSocket;
 }
@@ -155,7 +171,7 @@ void* ClientProxy::handle_serverConnection(void *arg){
         if(proxy->getServerConnected() == true && proxy->getClientConnected() == true){
             if(SSL_read(proxy->getServerSocket(), buffer, sizeof(buffer)) <= 0)
             {
-                fprintf(stderr, "ClientProxy - problem .\n");
+                fprintf(stderr, "ClientProxy - Connection with Server not available\n");
                 proxy->close_serverConnection();
             }
             else{
@@ -275,6 +291,7 @@ int ClientProxy::connect_server(char* host, int port){
     struct sockaddr_in serverAddress;
     const SSL_METHOD *method;
     SSL_CTX *ctx;
+    char buffer[CP_MAX_MSG_SIZE];
 
     // Inicializa o SSL
     SSL_library_init();
@@ -332,6 +349,41 @@ int ClientProxy::connect_server(char* host, int port){
         line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
         printf("Issuer: %s\n\n", line);
     }
+
+    // Loga com cliente
+    bzero(buffer, sizeof(buffer));
+    strncpy(buffer, (char *) _clientName.c_str(), sizeof(buffer));
+    if(SSL_write(_sslServer, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "ClientProxy - Error logging in with client %s\n", (char *)_clientName.c_str());
+        return -1;
+    }
+
+    bzero(buffer, sizeof(buffer));
+    if(SSL_read(_sslServer, buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "ClientProxy - Error logging in with client %s\n", (char *)_clientName.c_str());
+        return -1;
+    }
+    if(_first_login && SSL_write(get_communicationSocket(), buffer, sizeof(buffer)) < 0){
+        fprintf(stderr, "ClientProxy - Error logging in with client %s\n", (char *)_clientName.c_str());
+        return -1;
+    }
+    _first_login = false;
+    
+    // Usuário logou
+    if(atoi(buffer) == CP_LOGIN_SUCCESSFUL){
+        fprintf(stderr, "ClientProxy - User %s successfully logged in.\n", (char *)_clientName.c_str());
+    }
+    // Usuário não conseguiu logar
+    else if(atoi(buffer) == CP_LOGIN_FAILED){
+        fprintf(stderr, "ClientProxy - Error logging in with client %s\n", (char *)_clientName.c_str());
+        return -1;
+    }
+    else{
+    // Falha no login
+        fprintf(stderr, "ClientProxy - Unknown Error (unexpected message)\n");
+        return -1;
+    }
+
     _isServerConnected = true;
 
     return _serverSocket;

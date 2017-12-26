@@ -19,6 +19,7 @@ class ClientProxy{
     private:
         // Socket de comunicação com o cliente
         int _clientSocket;
+        std::string _clientName;
         bool _isClientConnected;
         bool _isServerConnected;
         char _userId[MAXNAME];
@@ -37,7 +38,8 @@ class ClientProxy{
         pthread_mutex_t _clientStructMutex;
 
         int _error;
-
+        bool _first_login;
+        
         // Gere se thread está disponível
         int _clientThreadState;
         int _serverThreadState;
@@ -63,6 +65,8 @@ class ClientProxy{
 
             _server_list = get_serverList();
             _it = _server_list.begin();
+
+            _first_login = true;
         };
         int initialize_clientConnection();
         int listenAndAccept();

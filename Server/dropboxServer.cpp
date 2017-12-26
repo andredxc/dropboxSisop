@@ -374,10 +374,6 @@ void DropboxServer::send_file(int socket, char* userId, char* filePath){
     fprintf(stderr, "Socket %d - File \'%s\' was sent\n", socket, basename(filePath));
 }
 
-
-void DropboxServer::findLeader(int socket, char* userId){
-    return;
-}
 //--------------------------------------------------FUNÇÕES EXTRAS
 
 /*Cria a thread para atender a comunicação com um cliente, encapsula a chamad a pthread_create*/
@@ -460,6 +456,7 @@ void* DropboxServer::handleConnectionThread(void* args){
         }
 
         if(returnVal < 0){
+            //server->logOutClient(socket, userId); // TODO: Ver se isso aqui nesse lugar dá certo
             fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
         }
         else if(returnVal == 0){
@@ -535,7 +532,7 @@ void* DropboxServer::handleConnectionThread(void* args){
                     server->unlockFile(socket, userId);
                     break;
                 case CP_FIND_LEADER:
-                    server->findLeader(socket, userId);
+                    //server->findLeader(socket, userId);
                     break;
                 case 0:
                     fprintf(stderr, "Connection with Client not available. Trying to connect %d\n", atoi(receiveBuffer));
@@ -1214,10 +1211,13 @@ int DropboxServer::justListen(){
 
     struct sockaddr_in clientAddress;
     socklen_t clientLength;
-    int newSocket;
+    int value;
 
     clientLength = sizeof(struct sockaddr_in);
-    return listen(_serverSocket, SERVER_BACKLOG);
+    if(_myPosition == 1){
+        for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
+            fprintf(stderr, ""); //if(_it2->second == 1) fprintf(stderr, "Valor: %d\n", listen(_it2->first, SERVER_BACKLOG));
+    }
 }
 
 /*Faz o socket() e bind() do servidor, retorna -1 ou o valor do socket*/

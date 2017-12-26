@@ -17,7 +17,6 @@ int main(){
         return -1;
     }
 
-
     fprintf(stderr, "Server is listening.\n");
 
     // TODO: if checkServer == 1 else abaixo
@@ -26,7 +25,6 @@ int main(){
     pthread_t *serverThread;
 
     proxy.listenAndAccept();
-
     clientThread = proxy.clientWatcher();
     serverThread = proxy.serverWatcher();
 
