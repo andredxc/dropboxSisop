@@ -84,6 +84,8 @@ void getFileSize(const char* filePath, int* buffer){
 
     if(!(curFile = fopen(filePath, "r"))){
         fprintf(stderr, "DropboxClient - Erro abrindo arquivo %s em\n", filePath);
+        *buffer = -1;
+        return;
     }
 
     // Descobrindo tamanho do arquivo

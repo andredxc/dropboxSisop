@@ -50,6 +50,7 @@ class DropboxClient{
         void list_client();
 
         static void* fileWatcher(void* clientClass);
+        static void* sync(void* clientClass);
 };
 
 #endif

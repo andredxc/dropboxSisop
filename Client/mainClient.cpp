@@ -15,7 +15,7 @@
 #include "dropboxClient.h"
 
 int main(int argc, char** argv){
-    pthread_t fileWatcherThread;
+    pthread_t fileWatcherThread, syncThread;
     char comand[MAXCOMANDSIZE], syncDirPath[256];
     int isRunning = 1;
     DropboxClient client;
@@ -48,6 +48,7 @@ int main(int argc, char** argv){
     //Cria a thread que verifica por alterações nos arquivos
     snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, client.getUserId());
     pthread_create(&fileWatcherThread, NULL, DropboxClient::fileWatcher, (void*) &client);
+    pthread_create(&syncThread, NULL, DropboxClient::sync, (void*) &client);
 
     //Lê comandos do usuário
     while(client.getIsConnected()){
