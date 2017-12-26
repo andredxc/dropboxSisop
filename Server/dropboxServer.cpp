@@ -49,7 +49,7 @@ void DropboxServer::sync_server(int socket, char* userId){
         }
     }
 
-    //Sincroniza diretórios
+    //Envia o número de arquivos
     numberOfFiles = countUserFiles(userId);
     userIndex = findUserIndex(userId);
     if(!sendInteger(_ssl, numberOfFiles)){
@@ -59,6 +59,12 @@ void DropboxServer::sync_server(int socket, char* userId){
     if(_imLeader == true){
         for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
             if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
+    }
+
+    // Envia um ack pelo número de arquivoss
+    if(!receiveExpectedInt(_ssl, CP_CLIENT_NUMBER_OF_FILES_ACK)){
+        fprintf(stderr, "Socket %d - Erro sending CP_CLIENT_NUMBER_OF_FILES_ACK\n", socket);
+        return;
     }
 
     //Manda as informações de todos os arquivos

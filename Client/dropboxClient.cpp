@@ -118,6 +118,14 @@ void DropboxClient::sync_client(){
     numberOfFiles = atoi(buffer);
     snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
 
+    fprintf(stderr, "Received number of files: %d\n", numberOfFiles);
+
+    // Envia um ack pelo número de arquivoss
+    if(!sendInteger(_ssl, CP_CLIENT_NUMBER_OF_FILES_ACK)){
+        fprintf(stderr, "DropboxClient - Erro sending CP_CLIENT_NUMBER_OF_FILES_ACK\n");
+        return;
+    }
+
     //Laço que recebe o nome e o Mtime de cada arquivo do servidor
     for(i = 0; i < numberOfFiles; i++){
 
@@ -647,8 +655,6 @@ void DropboxClient::getSyncDirComand(){
 
     char syncDirPath[200];
     int errorCode;
-
-
 
     snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, _userId);
     if(chmod(syncDirPath, S_IRUSR | S_IROTH | S_IRGRP | S_IWGRP | S_IWUSR | S_IXGRP | S_IXOTH | S_IXUSR) != 0){
