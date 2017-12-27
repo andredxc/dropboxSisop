@@ -621,8 +621,6 @@ bool DropboxServer::assignNewFile(char* fileName, char* fileMTime, int fileSize,
     }
 }
 
-
-
 /*Adiciona um usuário a estrutura de clientes do servidor*/
 bool DropboxServer::logInClient(int socket, char* userId){
 
@@ -636,9 +634,8 @@ bool DropboxServer::logInClient(int socket, char* userId){
         if(strcmp(userId, _clients.at(i).userId) == 0){
             foundUser = true;
             int allUsed = 1; // todos devices estão ocupados
-            for(int j = 0; j < _max_connections; j++){
+            for(int j=0; j < _max_connections; j++){
                 if(_clients.at(i).devices[j] <= 0) allUsed = 0;
-                std::cerr << _clients.at(i).devices[j];
             }
             if(allUsed == 1){
                 printf("Socket %d - User already has %d connections\n", socket, _max_connections);
@@ -652,11 +649,13 @@ bool DropboxServer::logInClient(int socket, char* userId){
         //Usuário velho
         _clients.at(i).logged_in = 1;
         int allUsed = 1; // todos devices estão ocupados
-        for(int j=0; j < _max_connections; j++){
+        int j = 0;
+        while(j < _max_connections && allUsed == 1){
             if(_clients.at(i).devices[j] <= 0){
                 _clients.at(i).devices[j] = socket;
                 allUsed = 0;
             }
+            j++;
         }
         if(allUsed == 1){
             printf("Socket %d - Internal error, one position should be empty\n", socket);
@@ -710,14 +709,13 @@ void DropboxServer::logOutClient(int socket, char* userId){
         if(strcmp(userId, _clients.at(i).userId) == 0){
             int userToLogout = 1;
             int j = 0;
-            while(userToLogout == 1 && j < _max_connections){
+            while(userToLogout && j < _max_connections){
                 if(_clients.at(i).devices[j] == socket){
-                    _clients.at(i).devices[j] = -1;
-                    userToLogout = 0;
+                    _clients.at(i).devices[0] = -1;
                 }
                 j++;
             }
-            if(j == _max_connections){
+            if(_max_connections == j){
                 printf("Internal error on logout\n");
             }
             pthread_mutex_unlock(&_clientStructMutex);
