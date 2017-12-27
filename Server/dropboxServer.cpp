@@ -49,7 +49,7 @@ void DropboxServer::sync_server(int socket, char* userId){
         }
     }
 
-    //Sincroniza diretórios
+    //Envia o número de arquivos
     numberOfFiles = countUserFiles(userId);
     userIndex = findUserIndex(userId);
     if(!sendInteger(_ssl, numberOfFiles)){
@@ -61,16 +61,21 @@ void DropboxServer::sync_server(int socket, char* userId){
             if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
     }
 
+    // Envia um ack pelo número de arquivoss
+    if(!receiveExpectedInt(_ssl, CP_CLIENT_NUMBER_OF_FILES_ACK)){
+        fprintf(stderr, "Socket %d - Erro sending CP_CLIENT_NUMBER_OF_FILES_ACK\n", socket);
+        return;
+    }
+
     //Manda as informações de todos os arquivos
     for(i = 0; i < numberOfFiles; i++){
-
-        fprintf(stderr, "Sendind file %d\n", i);
 
         //Envia o nome do arquivo
         bzero(buffer, sizeof(buffer));
         strncpy(buffer, _clients.at(userIndex).file_info[i].name, sizeof(buffer));
         if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error sending file %d name (%s)\n", socket, i+1, buffer);
+            return;
         }
         if(_imLeader == true){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
@@ -92,6 +97,7 @@ void DropboxServer::sync_server(int socket, char* userId){
         strncpy(buffer, _clients.at(userIndex).file_info[i].last_modified, sizeof(buffer));
         if(SSL_write(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error sending file %d M time (%s)\n", socket, i+1, buffer);
+            return;
         }
         if(_imLeader == true){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
@@ -102,13 +108,12 @@ void DropboxServer::sync_server(int socket, char* userId){
         bzero(buffer, sizeof(buffer));
         if(SSL_read(_ssl, buffer, sizeof(buffer)) < 0){
             fprintf(stderr, "Socket %d - Error receiving answer from client\n", socket);
+            return;
         }
         if(_imLeader == true){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                 if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
         }
-
-        fprintf(stderr, "Sending file %d (2)\n", i);
 
         switch (atoi(buffer)) {
             case CP_SYNC_FILE_OK:
@@ -159,13 +164,13 @@ void DropboxServer::sync_server(int socket, char* userId){
                     for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                         if((*_it2).second == 1) if(SSL_write((*_it2).first, buffer, sizeof(buffer)) < 0) (*_it2).second = 0;
                 }
+
                 if(get_file >= 0 && _imLeader == true){
                     send_file(socket, userId, buffer);
                 }
                 break;
             case CP_SYNC_FILE_NOT_FOUND:
                 //Arquivo não se encontra no client
-                fprintf(stderr, "Socket %d - Received CP_SYNC_FILE_NOT_FOUND\n", socket);
                 break;
             default: fprintf(stderr, "Socket %d - Unrecognized answer at sync_server\n", socket); break;
         }
@@ -396,6 +401,7 @@ void* DropboxServer::handleConnectionThread(void* args){
     int socket, returnVal;
     bool isRunning = true;
     char receiveBuffer[CP_MAX_MSG_SIZE], userId[MAXNAME];
+    int numberOfAtempts = 0, maxAtempts = 5;
 
     DropboxServer *server = arg.instance;
     socket = *arg.socket;
@@ -458,12 +464,20 @@ void* DropboxServer::handleConnectionThread(void* args){
         if(returnVal < 0){
             //server->logOutClient(socket, userId); // TODO: Ver se isso aqui nesse lugar dá certo
             fprintf(stderr, "Socket %d - Error receiving comand from client\n", socket);
+            numberOfAtempts++;
+            if(numberOfAtempts >= maxAtempts){
+                // Atingiu o timeout
+                server->logOutClient(socket, userId);
+                server->closeConnection(socket);
+            }
         }
         else if(returnVal == 0){
             server->logOutClient(socket, userId);
             server->closeConnection(socket);
         }
         else{
+            // Mensagem recebida com sucesso, reinicia timeout
+            numberOfAtempts = 0;
             switch(atoi(receiveBuffer)){
                 case CP_CLIENT_END_CONNECTION:
                     server->logOutClient(socket, userId);
@@ -660,6 +674,7 @@ void DropboxServer::logOutClient(int socket, char* userId){
     uint i;
     int userIndex;
     int j, k;
+    char curFilePath[256];
 
     pthread_mutex_lock(&_clientStructMutex);
     //Remove os locks que o usuário tinha em arquivos
@@ -1028,14 +1043,12 @@ void DropboxServer::lockFile(int socket, char* userId){
         //Envia mensagem de falha ao cliente
         if(!sendInteger(_ssl, 0)){
             fprintf(stderr, "DropboxClient - Error sending lock list size\n");
-            pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
         if(_imLeader == true){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                 if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
         }
-
         return;
     }
     //Verifica se o cliente está na lista de locks
@@ -1069,7 +1082,6 @@ void DropboxServer::lockFile(int socket, char* userId){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                 if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
         }
-
     }
     else{
         //O cliente atual deve esperar o lock ser liberado, envia o tamanho da lista
@@ -1126,7 +1138,6 @@ void DropboxServer::unlockFile(int socket, char* userId){
         pthread_mutex_unlock(&_clientStructMutex);
         if(!sendInteger(_ssl, 0)){
             fprintf(stderr, "DropboxClient - Error sending lock list size\n");
-            pthread_mutex_unlock(&_clientStructMutex);
             return;
         }
         if(_imLeader == true){
@@ -1155,7 +1166,6 @@ void DropboxServer::unlockFile(int socket, char* userId){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                 if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
         }
-
     }
     else{
         //Erro na busca do lock

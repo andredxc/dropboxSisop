@@ -118,6 +118,12 @@ void DropboxClient::sync_client(){
     numberOfFiles = atoi(buffer);
     snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
 
+    // Envia um ack pelo número de arquivoss
+    if(!sendInteger(_ssl, CP_CLIENT_NUMBER_OF_FILES_ACK)){
+        fprintf(stderr, "DropboxClient - Erro sending CP_CLIENT_NUMBER_OF_FILES_ACK\n");
+        return;
+    }
+
     //Laço que recebe o nome e o Mtime de cada arquivo do servidor
     for(i = 0; i < numberOfFiles; i++){
 
@@ -148,7 +154,11 @@ void DropboxClient::sync_client(){
             get_file(curFileName, syncDirPath);
         }
         else{
-            //Arquivo encontrado, compara os tempos de modificação
+            //Arquivo encontrado, remove possíveis locks do arquivo
+            if(chmod(curFilePath, S_IRUSR | S_IROTH | S_IRGRP | S_IWGRP | S_IWUSR) != 0){
+                fprintf(stderr, "Error, couldn't change file permissions for \'%s\'\n", curFilePath);
+            }
+            //Compara os tempos de modificação
             localFileMTime = getMTimeValue(curFilePath);
             diffTimeValue = difftime(localFileMTime, serverFileMTime);
 
@@ -622,6 +632,22 @@ void* DropboxClient::fileWatcher(void* clientClass){
     return NULL;
 }
 
+/*Executa o comando get_sync_dir*/
+void* DropboxClient::sync(void* clientClass){
+
+    DropboxClient* client = (DropboxClient*) clientClass;
+    int syncDelay = 5;
+
+    while(true){
+
+        sleep(syncDelay);
+
+        client->lockSocket();
+        client->getSyncDirComand();
+        client->unlockSocket();
+    }
+}
+
 /*Executa as ações referentes ao comand get_sync_dir*/
 void DropboxClient::getSyncDirComand(){
 
@@ -629,7 +655,9 @@ void DropboxClient::getSyncDirComand(){
     int errorCode;
 
     snprintf(syncDirPath, sizeof(syncDirPath), "%ssync_dir_%s", CLIENT_SYNC_DIR_PATH, _userId);
-    //Verifica se sync_dir já existe no cliente
+    if(chmod(syncDirPath, S_IRUSR | S_IROTH | S_IRGRP | S_IWGRP | S_IWUSR | S_IXGRP | S_IXOTH | S_IXUSR) != 0){
+        fprintf(stderr, "Error, couldn't change file permissions for \'%s\'\n", syncDirPath);
+    }
     if(access(CLIENT_SYNC_DIR_PATH, F_OK) == -1){
         if((errorCode = mkdir(CLIENT_SYNC_DIR_PATH, S_IRWXU)) != 0){
             fprintf(stderr, "DropboxClient - Error %d creating sync dir %s\n", errorCode, CLIENT_SYNC_DIR_PATH);

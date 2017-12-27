@@ -40,7 +40,7 @@ bool receiveExpectedInt(SSL* ssl, int message){
 
   	bzero(buffer, sizeof(buffer));
   	if(SSL_read(ssl, buffer, sizeof(buffer)) <= 0){
-  		fprintf(stderr, "DropboxUtil - Didn't receive expected integer\n");
+  		fprintf(stderr, "DropboxUtil - Didn't receive expected integer %s (%d)\n", getCPMessage(message), message);
 		return false;
   	}
     if(message == -1) return true;
@@ -84,6 +84,8 @@ void getFileSize(const char* filePath, int* buffer){
 
     if(!(curFile = fopen(filePath, "r"))){
         fprintf(stderr, "DropboxClient - Erro abrindo arquivo %s em\n", filePath);
+        *buffer = -1;
+        return;
     }
 
     // Descobrindo tamanho do arquivo
@@ -200,6 +202,7 @@ const char* getCPMessage(int cpCode){
         case CP_CLIENT_GET_FILE_UNLOCK_SUCCESS: return "CP_CLIENT_GET_FILE_UNLOCK_SUCCESS";
         case CP_CLIENT_GET_FILE_UNLOCK_FAIL: return "CP_CLIENT_GET_FILE_UNLOCK_FAIL";
         case CP_CLIENT_GET_FILE_NOEXISTS: return "CP_CLIENT_GET_FILE_NOEXISTS";
+        case CP_CLIENT_NUMBER_OF_FILES_ACK: return "CP_CLIENT_NUMBER_OF_FILES_ACK";
         default: return "UNKNOWN";
     }
 }
