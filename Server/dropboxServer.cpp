@@ -636,7 +636,7 @@ bool DropboxServer::logInClient(int socket, char* userId){
         if(strcmp(userId, _clients.at(i).userId) == 0){
             foundUser = true;
             int allUsed = 1; // todos devices estão ocupados
-            for(int j=0; j < _max_connections; j++){
+            for(int j = 0; j < _max_connections; j++){
                 if(_clients.at(i).devices[j] <= 0) allUsed = 0;
                 std::cerr << _clients.at(i).devices[j];
             }
@@ -710,7 +710,7 @@ void DropboxServer::logOutClient(int socket, char* userId){
         if(strcmp(userId, _clients.at(i).userId) == 0){
             int userToLogout = 1;
             int j = 0;
-            while(userToLogout && j < _max_connections){
+            while(userToLogout == 1 && j < _max_connections){
                 if(_clients.at(i).devices[j] == socket){
                     _clients.at(i).devices[j] = -1;
                     userToLogout = 0;
