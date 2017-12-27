@@ -1133,7 +1133,6 @@ void DropboxServer::unlockFile(int socket, char* userId){
             for(_it2 = _sockets_list.begin(); _it2 != _sockets_list.end(); _it2++)
                 if((*_it2).second == 1) receiveExpectedInt((*_it2).first, -1);
         }
-
         return;
     }
     //Remove o lock do arquivo
@@ -1263,24 +1262,22 @@ int DropboxServer::initialize(int port){
 
     _my_hostport.second = port;
     // Adquire IP
-    FILE * file_handler= popen("ifconfig", "r");
-    std::vector<std::string> ips;
-    char *host_name = '\0';
+    FILE * file_handler= popen("ifconfig", "r"); // executa ifconfig do terminal (ubuntu)
+    char *host_name='\0';
     char *aux;
     size_t nr;
+
     while(getline(&host_name, &nr, file_handler) > 0 && host_name) {
-        if (host_name = strstr(host_name, "inet ")){
-            host_name+=5;
-            if (host_name = strchr(host_name, ':')) {
-                ++host_name;
-                if (aux = strchr(host_name, ' ')) {
-                    *aux='\0';
-                    ips.push_back(std::string(host_name));
-                }
+        if (host_name = strstr(host_name, "inet addr:")){ // pega linha com ip
+            host_name += 10; // copia ip
+            if(aux = strchr(host_name, ' ')){
+                *aux = '\0'; // primeiro espaço é o fim do ip
+                _my_hostport.first = std::string(host_name);
             }
+            break;
         }
     }
-    _my_hostport.first = ips[0];
+
     pclose(file_handler);
 
     getHostPort();
@@ -1291,11 +1288,20 @@ int DropboxServer::initialize(int port){
     return _serverSocket;
 }
 
+void DropboxServer::elect_newLeader(){
+    if(_myPosition == 1) _imLeader = true;
+}
+
 /*Fecha a conexão com um cliente*/
 void DropboxServer::closeConnection(int socket){
 
     printf("DropboxServer - Closing connection with socket %d\n", socket);
     close(socket);
+    if(_imLeader == false){
+        _myPosition -= 1;
+        elect_newLeader();
+        if(_imLeader == true) fprintf(stderr, "DropboxServer - 'Hey!, I'm the leader!'\n");
+    }
     pthread_exit(NULL);
 }
 
@@ -1371,6 +1377,7 @@ SSL *DropboxServer::connect_server(char* host, int port){
 
 void DropboxServer::connectToServers(){
     int i = 1;
+    bool anotherServerExists;
     if(_imLeader == true){ // se é o líder
         for(_it1 = (_server_list).begin(); _it1 != (_server_list).end(); (_it1)++)
         {

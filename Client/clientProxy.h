@@ -39,7 +39,7 @@ class ClientProxy{
 
         int _error;
         bool _first_login;
-        
+
         // Gere se thread está disponível
         int _clientThreadState;
         int _serverThreadState;
@@ -68,7 +68,7 @@ class ClientProxy{
 
             _first_login = true;
         };
-        int initialize_clientConnection();
+        int initialize_clientConnection(int port);
         int listenAndAccept();
         int get_clientSocket();
         int send_message(int message);

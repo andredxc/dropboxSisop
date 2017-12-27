@@ -81,6 +81,7 @@ class DropboxServer{
         void connectToServers();
         int get_myposition();
         int get_imleader();
+        void elect_newLeader();
 
     private:
     //Funções extras

@@ -8,12 +8,15 @@
 #include <netinet/in.h>
 #include "clientProxy.h"
 
-int main(){
+int main(int argc, char** argv){
     ClientProxy proxy;
     int isRunning=1;
 
     //Inicialização do socket de comunicação com o cliente
-    if(proxy.initialize_clientConnection() < 0){
+    int port;
+    if(argc > 1)port = atoi(argv[1]);
+    else port = PROXY_PORT;
+    if(proxy.initialize_clientConnection(port) < 0){
         return -1;
     }
 

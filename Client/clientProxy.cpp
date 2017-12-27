@@ -21,7 +21,7 @@
 #include <time.h>
 
 
-int ClientProxy::initialize_clientConnection(){
+int ClientProxy::initialize_clientConnection(int port){
 
     struct sockaddr_in proxyAddress;
     const SSL_METHOD *method;
@@ -52,7 +52,7 @@ int ClientProxy::initialize_clientConnection(){
 
     //Inicializa struct do socket
     proxyAddress.sin_family = AF_INET; // communication domain do socket criado
-    proxyAddress.sin_port = htons(PROXY_PORT); // porta do socket
+    proxyAddress.sin_port = htons(port); // porta do socket
     proxyAddress.sin_addr.s_addr = INADDR_ANY; // container genérico
     bzero(&(proxyAddress.sin_zero), 8); // completa os 16 bits de serverAddress com 8 0's (trabalha-se com 16 bits, mas
                                          // sin_family tem 2 bits, sin_port tem 2 e sin_addr tem 4)
@@ -368,7 +368,7 @@ int ClientProxy::connect_server(char* host, int port){
         return -1;
     }
     _first_login = false;
-    
+
     // Usuário logou
     if(atoi(buffer) == CP_LOGIN_SUCCESSFUL){
         fprintf(stderr, "ClientProxy - User %s successfully logged in.\n", (char *)_clientName.c_str());
