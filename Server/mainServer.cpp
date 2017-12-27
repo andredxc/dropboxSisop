@@ -10,7 +10,8 @@
 int main(int argc, char** argv){
 
     DropboxServer server;
-    int comunicationSocket, isRunning=1;
+    std::pair<int, SSL*> comunicationSocket;
+    int isRunning = 1;
 
     //Inicialização do servidor
     int port;
@@ -20,12 +21,12 @@ int main(int argc, char** argv){
         return -1;
     }
 
-    server.connectToServers();
+    //server.connectToServers();
     //Esperando por conexões e disparando threads
     while(isRunning){
         fprintf(stderr, "Server is listening.\n");
         comunicationSocket = server.listenAndAccept();
-        server.handleConnection(&comunicationSocket);
+        server.handleConnection(comunicationSocket);
     }
 
     close(server.getSocket());

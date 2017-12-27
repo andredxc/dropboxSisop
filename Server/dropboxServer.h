@@ -15,7 +15,8 @@
 
 #define MAXNAME 20
 #define MAXFILES 20
-#define MAXUSERS 2
+#define MAXUSERS 5
+#define MAXCONNECTIONS 5
 
 #define SERVER_PORT 4000 // Após alterações, usaremos o abaixo.
 #define SERVER_HOST_PORT_FILE "./server_host-port.txt" // ip route get 8.8.8.8 | awk '{print $NF; exit}' dá o ip no ubuntu
@@ -41,11 +42,12 @@ typedef struct client{
 class DropboxServer{
 
     private:
+
+        int _max_connections;
         int _serverSocket;
         std::vector<CLIENT> _clients;
         pthread_mutex_t _clientStructMutex;
-	      SSL *_ssl;
-        SSL_CTX *ctx;
+        SSL_CTX *_ctx;
         //
         // Lista de Servidores vinda do arquivo txt
         std::list<std::pair<std::string, int> > _server_list; // lista a receber lista de servidores
@@ -62,15 +64,15 @@ class DropboxServer{
     public:
         DropboxServer();
     //Funções definidas na especificação
-        void sync_server(int socket, char* userId);
-        void receive_file(int socket, char* userId, char* file);
-        void send_file(int socket, char* userId, char* file);
+        void sync_server(int socket, SSL *ssl, char* userId);
+        void receive_file(int socket, SSL *ssl, char* userId, char* file);
+        void send_file(int socket, SSL *ssl, char* userId, char* file);
 
         void findLeader(int socket, char *userId);
     //Funções extras
         int initialize(int port);
-        pthread_t *handleConnection(int* socket);
-        int listenAndAccept();
+        pthread_t *handleConnection(std::pair<int, SSL *> socket_ssl);
+        std::pair<int, SSL *> listenAndAccept();
         void closeConnection(int socket);
 
         int getSocket();
@@ -93,10 +95,10 @@ class DropboxServer{
         int findUserIndex(const char* userId);
         void recoverData();
         int findUserFile(char* userId, char* fileName);
-        void deleteFile(int socket, char* userId);
-        void listServer(int socket, char* userId);
-        void lockFile(int socket, char* userId);
-        void unlockFile(int socket, char* userId);
+        void deleteFile(int socket, SSL *ssl, char* userId);
+        void listServer(int socket, SSL *ssl, char* userId);
+        void lockFile(int socket, SSL *ssl, char* userId);
+        void unlockFile(int socket, SSL *ssl, char* userId);
 
         int initServerList(); // lista de servidores
         int initMyIndex(); // adquire próprio índice na lista de servidores
@@ -119,7 +121,8 @@ class DropboxServer{
 /*Utilizada na criação da thread pois a função tem que ser static*/
 struct serverAndSocket{
     DropboxServer* instance;
-    int* socket;
+    int socket;
+    SSL *ssl;
 };
 
 #endif
