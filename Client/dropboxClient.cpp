@@ -118,8 +118,6 @@ void DropboxClient::sync_client(){
     numberOfFiles = atoi(buffer);
     snprintf(syncDirPath, sizeof(syncDirPath), "%s%s%s", CLIENT_SYNC_DIR_PATH, "sync_dir_", _userId);
 
-    fprintf(stderr, "Received number of files: %d\n", numberOfFiles);
-
     // Envia um ack pelo número de arquivoss
     if(!sendInteger(_ssl, CP_CLIENT_NUMBER_OF_FILES_ACK)){
         fprintf(stderr, "DropboxClient - Erro sending CP_CLIENT_NUMBER_OF_FILES_ACK\n");
