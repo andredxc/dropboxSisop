@@ -39,7 +39,7 @@ bool receiveExpectedInt(SSL* ssl, int message){
   	char buffer[CP_MAX_MSG_SIZE];
 
   	bzero(buffer, sizeof(buffer));
-  	if(SSL_read(ssl, buffer, sizeof(buffer)) <= 0){
+  	if(SSL_read(ssl, buffer, sizeof(buffer)) < 0){
   		fprintf(stderr, "DropboxUtil - Didn't receive expected integer %s (%d)\n", getCPMessage(message), message);
 		return false;
   	}
@@ -218,7 +218,7 @@ std::list<std::pair<std::string, int> > get_serverList()
 
     if (infile) { }
     else {
-        std::cerr << "Couldn't open\n\n";
+        std::cerr << "Couldn't open File List\n\n";
     }
 
     while (infile >> host >> port)

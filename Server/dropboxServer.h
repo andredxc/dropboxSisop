@@ -48,6 +48,8 @@ class DropboxServer{
         std::vector<CLIENT> _clients;
         pthread_mutex_t _clientStructMutex;
         SSL_CTX *_ctx;
+        int _offset; // offset na lista de servidores (aumenta quando outros desconectam)
+
         //
         // Lista de Servidores vinda do arquivo txt
         std::list<std::pair<std::string, int> > _server_list; // lista a receber lista de servidores
